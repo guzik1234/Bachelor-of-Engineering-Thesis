@@ -27,3 +27,6 @@ class User(Base):
     feedback_entries: Mapped[list["Feedback"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    submissions: Mapped[list["ExerciseSubmission"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )

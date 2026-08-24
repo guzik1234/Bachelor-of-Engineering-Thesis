@@ -5,8 +5,11 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.material import Material
 from app.models.module import Module
+from app.models.submission import ExerciseSubmission
 from app.models.user import User
 from app.schemas.material import MaterialRead
+from app.schemas.submission import SubmissionCreate, SubmissionRead
+from app.services.code_checker import check_submission
 from app.services.llm_client import LLMGenerationError
 from app.services.material_generator import generate_material
 
@@ -20,6 +23,13 @@ def _get_owned_module(module_id: int, current_user: User, db: Session) -> Module
     if module is None or module.learning_path.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nie znaleziono modułu.")
     return module
+
+
+def _get_owned_material(material_id: int, current_user: User, db: Session) -> Material:
+    material = db.get(Material, material_id)
+    if material is None or material.module.learning_path.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nie znaleziono materiału.")
+    return material
 
 
 def _recent_feedback_notes(module: Module, material_type: str) -> list[str]:
@@ -99,3 +109,55 @@ def regenerate_material(
 
     module = _get_owned_module(module_id, current_user, db)
     return _generate_and_store(module, material_type, db)
+
+
+@router.post("/{material_id}/submissions", response_model=SubmissionRead, status_code=status.HTTP_201_CREATED)
+def submit_exercise_solution(
+    material_id: int,
+    payload: SubmissionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    material = _get_owned_material(material_id, current_user, db)
+    if material.material_type != "exercise":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sprawdzanie kodu jest dostępne tylko dla zadań praktycznych.",
+        )
+
+    try:
+        verdict = check_submission(
+            technology=material.module.learning_path.technology,
+            exercise_instructions=material.content.get("instructions", ""),
+            reference_solution=material.content.get("solution"),
+            submitted_code=payload.code,
+        )
+    except (LLMGenerationError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    submission = ExerciseSubmission(
+        user_id=current_user.id,
+        material_id=material_id,
+        submitted_code=payload.code,
+        **verdict,
+    )
+    db.add(submission)
+    db.commit()
+    db.refresh(submission)
+    return submission
+
+
+@router.get("/{material_id}/submissions", response_model=list[SubmissionRead])
+def list_submissions(
+    material_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _get_owned_material(material_id, current_user, db)
+
+    return (
+        db.query(ExerciseSubmission)
+        .filter(ExerciseSubmission.material_id == material_id, ExerciseSubmission.user_id == current_user.id)
+        .order_by(ExerciseSubmission.created_at.desc())
+        .all()
+    )

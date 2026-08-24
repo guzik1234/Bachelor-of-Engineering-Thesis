@@ -111,3 +111,49 @@ Poziom kursanta: {level_label}.
 {feedback_block}
 Zwróć WYŁĄCZNIE obiekt JSON zgodny dokładnie z tym schematem:
 {schema}"""
+
+
+def build_code_check_system_prompt() -> str:
+    return (
+        "Jesteś doświadczonym programistą i mentorem oceniającym rozwiązania zadań "
+        "praktycznych kursantów. Zawsze odpowiadasz wyłącznie poprawnym obiektem JSON, "
+        "bez żadnego dodatkowego tekstu przed ani po nim, zgodnym dokładnie z podanym "
+        "schematem. Informacja zwrotna musi być napisana w języku polskim, konkretna "
+        "i konstruktywna — wskazuj realne błędy i braki, ale też doceniaj to, co kursant "
+        "zrobił dobrze. Nie wykonujesz kodu — oceniasz go na podstawie analizy jego "
+        "poprawności logicznej i składniowej."
+    )
+
+
+def build_code_check_user_prompt(
+    technology: str,
+    exercise_instructions: str,
+    reference_solution: str | None,
+    submitted_code: str,
+) -> str:
+    reference_block = (
+        f"\nPrzykładowe poprawne rozwiązanie (punkt odniesienia, niekoniecznie jedyna "
+        f"akceptowalna forma — kursant nie musi go odtworzyć):\n{reference_solution}\n"
+        if reference_solution
+        else ""
+    )
+
+    return f"""Oceń rozwiązanie zadania praktycznego z technologii {technology}.
+
+Treść zadania:
+{exercise_instructions}
+{reference_block}
+Rozwiązanie kursanta:
+{submitted_code}
+
+Oceń, czy rozwiązanie poprawnie realizuje polecenie (nie musi być identyczne z przykładowym
+rozwiązaniem — liczy się poprawność i działanie, nie forma). Zwróć uwagę na błędy składniowe,
+błędy logiczne oraz dobre praktyki.
+
+Zwróć WYŁĄCZNIE obiekt JSON o dokładnie takiej strukturze:
+{{
+  "passed": true/false,
+  "feedback": "2-4 zdania podsumowania oceny",
+  "strengths": ["co kursant zrobił dobrze", "..."],
+  "improvements": ["co warto poprawić lub czego brakuje", "..."]
+}}"""

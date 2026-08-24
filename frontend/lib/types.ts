@@ -73,3 +73,14 @@ export interface Material {
   version: number;
   created_at: string;
 }
+
+export interface Submission {
+  id: number;
+  material_id: number;
+  submitted_code: string;
+  passed: boolean;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+  created_at: string;
+}

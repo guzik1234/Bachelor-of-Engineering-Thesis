@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
-import type { Material, MaterialType } from "@/lib/types";
+import type { Material, MaterialType, Submission } from "@/lib/types";
 
 const TYPE_LABELS: Record<MaterialType, string> = {
   text: "Wyjaśnienie",
@@ -18,16 +18,30 @@ function MaterialCard({
   material,
   onRegenerate,
   onFeedback,
+  onSubmitCode,
+  onListSubmissions,
 }: {
   material: Material;
   onRegenerate: (type: MaterialType) => Promise<void>;
   onFeedback: (materialId: number, rating: number, comment: string) => void;
+  onSubmitCode: (materialId: number, code: string) => Promise<Submission>;
+  onListSubmissions: (materialId: number) => Promise<Submission[]>;
 }) {
   const [showSolution, setShowSolution] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [code, setCode] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+
+  useEffect(() => {
+    if (material.material_type !== "exercise") return;
+    onListSubmissions(material.id).then(setSubmissions);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material.id, material.material_type]);
 
   async function handleRegenerate() {
     setRegenerating(true);
@@ -35,6 +49,19 @@ function MaterialCard({
       await onRegenerate(material.material_type);
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleCheckCode() {
+    setChecking(true);
+    setCheckError(null);
+    try {
+      const result = await onSubmitCode(material.id, code);
+      setSubmissions((prev) => [result, ...prev]);
+    } catch (err) {
+      setCheckError(err instanceof ApiError ? err.message : "Nie udało się sprawdzić rozwiązania.");
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -91,6 +118,64 @@ function MaterialCard({
               )}
             </div>
           )}
+
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+            <p className="text-xs font-medium text-slate-500">Wklej swoje rozwiązanie do sprawdzenia przez AI</p>
+            <textarea
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Wklej tutaj swój kod…"
+              rows={8}
+              spellCheck={false}
+              className="rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs"
+            />
+            {checkError && <p className="text-sm text-red-600">{checkError}</p>}
+            <button
+              onClick={handleCheckCode}
+              disabled={checking || code.trim().length === 0}
+              className="self-start rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            >
+              {checking ? "Sprawdzanie…" : "Sprawdź rozwiązanie"}
+            </button>
+
+            {submissions.length > 0 && (
+              <div className="mt-2 flex flex-col gap-3">
+                {submissions.map((s) => (
+                  <div
+                    key={s.id}
+                    className={`rounded-md border p-3 text-sm ${
+                      s.passed ? "border-green-300 bg-green-50" : "border-amber-300 bg-amber-50"
+                    }`}
+                  >
+                    <p className={`font-medium ${s.passed ? "text-green-700" : "text-amber-700"}`}>
+                      {s.passed ? "✓ Zaliczone" : "Wymaga poprawy"}
+                    </p>
+                    <p className="mt-1 text-slate-700">{s.feedback}</p>
+                    {s.strengths.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-slate-500">Mocne strony:</p>
+                        <ul className="list-inside list-disc text-xs text-slate-600">
+                          {s.strengths.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {s.improvements.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-slate-500">Do poprawy:</p>
+                        <ul className="list-inside list-disc text-xs text-slate-600">
+                          {s.improvements.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -195,6 +280,16 @@ export default function ModuleDetailPage() {
     api.submitFeedback(token, materialId, rating, comment || undefined);
   }
 
+  function handleSubmitCode(materialId: number, code: string) {
+    if (!token) return Promise.reject(new Error("Brak autoryzacji."));
+    return api.submitSolution(token, materialId, code);
+  }
+
+  function handleListSubmissions(materialId: number) {
+    if (!token) return Promise.resolve([]);
+    return api.listSubmissions(token, materialId);
+  }
+
   async function handleToggleComplete() {
     if (!token || !moduleInfo) return;
     const next = !moduleInfo.completed;
@@ -228,6 +323,8 @@ export default function ModuleDetailPage() {
                   material={material}
                   onRegenerate={handleRegenerate}
                   onFeedback={handleFeedback}
+                  onSubmitCode={handleSubmitCode}
+                  onListSubmissions={handleListSubmissions}
                 />
               ))}
             </div>

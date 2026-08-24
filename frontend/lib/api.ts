@@ -1,4 +1,4 @@
-import type { LearningPath, LearningPathSummary, Material, Preference, User } from "./types";
+import type { LearningPath, LearningPathSummary, Material, Preference, Submission, User } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -91,4 +91,14 @@ export const api = {
       { method: "POST", body: JSON.stringify({ material_id: materialId, rating, comment }) },
       token
     ),
+
+  submitSolution: (token: string, materialId: number, code: string) =>
+    request<Submission>(
+      `/api/materials/${materialId}/submissions`,
+      { method: "POST", body: JSON.stringify({ code }) },
+      token
+    ),
+
+  listSubmissions: (token: string, materialId: number) =>
+    request<Submission[]>(`/api/materials/${materialId}/submissions`, {}, token),
 };

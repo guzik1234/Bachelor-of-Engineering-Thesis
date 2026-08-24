@@ -93,10 +93,14 @@ Zgodnie z `wymagania/Wymagania Funkcjonalne I Niefunkcjonalne Ai Sciezka Edukacy
 - Oznaczanie ukończonych modułów, prezentacja postępu (w.f. 18–19)
 - Ocena materiałów (1–5) i komentarze, wykorzystywane przy kolejnej generacji tego typu materiału (w.f. 21–23)
 - Integracja z LLM przez API + obsługa niedostępności modelu (HTTP 503 zamiast błędu krytycznego) (w.f. 24–26)
+- Sprawdzanie kodu w zadaniach praktycznych: kursant wkleja rozwiązanie, model AI ocenia je
+  względem treści zadania (bez wykonywania kodu) i zwraca werdykt zaliczone/niezaliczone wraz
+  z mocnymi stronami i konkretnymi wskazówkami do poprawy; historia prób jest zapisywana
+  (rozszerzenie w.f. 15, inspirowane automatyczną oceną kodu w Codecademy z `wymagania/1 1.pdf`)
 
 Nie zaimplementowane jeszcze (lista „powinien”, `wymagania/...pdf` §1.2) — naturalne kolejne
-kroki: rekomendacje kolejnych tematów, eksport do PDF, chatbot Q&A, statystyki i raporty,
-wersja wielojęzyczna, powiadomienia, RAG na dokumentacji technologicznej.
+kroki: rekomendacje kolejnych tematów, eksport do PDF, chatbot-tutor Q&A w kontekście lekcji,
+statystyki i raporty, wersja wielojęzyczna, powiadomienia, RAG na dokumentacji technologicznej.
 
 ## Rejestrowanie 3–4 ścieżek edukacyjnych
 
