@@ -1,3 +1,5 @@
+import json
+
 LEVEL_LABELS = {
     "beginner": "początkujący",
     "intermediate": "średniozaawansowany",
@@ -221,3 +223,61 @@ Zwróć WYŁĄCZNIE obiekt JSON o dokładnie takiej strukturze:
   "strengths": ["co kursant zrobił dobrze", "..."],
   "improvements": ["co warto poprawić lub czego brakuje", "..."]
 }}"""
+
+
+def build_material_critique_system_prompt() -> str:
+    return (
+        "Jesteś rygorystycznym recenzentem materiałów edukacyjnych dla programistów. "
+        "Oceniasz wygenerowany materiał pod kątem poprawności merytorycznej, dopasowania "
+        "do poziomu kursanta oraz zgodności z wcześniejszymi opiniami kursantów o "
+        "podobnych materiałach. Akceptujesz materiał tylko wtedy, gdy jest rzeczywiście "
+        "dobrej jakości — w przeciwnym razie każesz go poprawić, wskazując konkretne "
+        "problemy. Zawsze odpowiadasz wyłącznie poprawnym obiektem JSON, bez żadnego "
+        "dodatkowego tekstu przed ani po nim, zgodnym dokładnie z podanym schematem."
+    )
+
+
+def build_material_critique_user_prompt(
+    material_type: str,
+    technology: str,
+    experience_level: str,
+    module_title: str,
+    content: dict,
+) -> str:
+    level_label = LEVEL_LABELS.get(experience_level, experience_level)
+    materials_label = MATERIAL_TYPE_LABELS.get(material_type, material_type)
+
+    return f"""Oceń wygenerowany materiał typu "{materials_label}" z technologii {technology}
+(moduł: "{module_title}", poziom kursanta: {level_label}).
+
+Treść materiału (JSON):
+{json.dumps(content, ensure_ascii=False)}
+
+Sprawdź: czy materiał jest poprawny merytorycznie, czy jest dopasowany do poziomu kursanta,
+czy jest kompletny względem swojego typu oraz czy nie powiela wcześniej zgłaszanych przez
+kursantów problemów.
+
+Zwróć WYŁĄCZNIE obiekt JSON o dokładnie takiej strukturze:
+{{
+  "verdict": "accept" | "revise",
+  "issues": ["konkretny problem 1", "..."],
+  "notes": "1-2 zdania podsumowania oceny"
+}}"""
+
+
+def build_tutor_system_prompt() -> str:
+    return (
+        "Jesteś tutorem-agentem pomagającym kursantowi zrozumieć materiały jego ścieżki "
+        "edukacyjnej. Odpowiadasz WYŁĄCZNIE w oparciu o dostarczone fragmenty materiałów "
+        "kursu (kontekst) oraz historię rozmowy — jeśli kontekst nie zawiera odpowiedzi, "
+        "jasno to powiedz, zamiast zmyślać. Odpowiadaj zwięźle, po polsku, i wskazuj z "
+        "którego modułu pochodzi wykorzystana informacja, jeśli to możliwe. Nie zwracasz "
+        "JSON-a — odpowiadasz zwykłym tekstem."
+    )
+
+
+def build_tutor_user_prompt(question: str, context_block: str) -> str:
+    return f"""Fragmenty materiałów kursu, które mogą być pomocne (mogą być niepełne):
+{context_block}
+
+Pytanie kursanta: {question}"""

@@ -1,3 +1,4 @@
+from app.models.chat_message import ChatMessage
 from app.models.feedback import Feedback
 from app.models.learning_path import LearningPath
 from app.models.material import Material
@@ -18,4 +19,5 @@ __all__ = [
     "Feedback",
     "ExerciseSubmission",
     "PathRecommendation",
+    "ChatMessage",
 ]

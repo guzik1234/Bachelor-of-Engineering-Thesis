@@ -71,6 +71,43 @@ export interface Material {
   material_type: MaterialType;
   content: MaterialContent;
   version: number;
+  critique_passed: boolean;
+  critique_notes: string | null;
+  created_at: string;
+}
+
+export interface PathStats {
+  id: number;
+  technology: string;
+  title: string;
+  completion_ratio: number;
+  avg_feedback_rating: number;
+  feedback_count: number;
+  exercise_pass_rate: number;
+  exercise_attempts: number;
+  pace_assessment: PaceAssessment | null;
+}
+
+export interface OverviewStats {
+  total_paths: number;
+  total_modules: number;
+  completed_modules: number;
+  completion_ratio: number;
+  avg_feedback_rating: number;
+  feedback_count: number;
+  exercise_pass_rate: number;
+  exercise_attempts: number;
+}
+
+export interface Stats {
+  overview: OverviewStats;
+  paths: PathStats[];
+}
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
   created_at: string;
 }
 

@@ -11,7 +11,7 @@ from app.schemas.material import MaterialRead
 from app.schemas.submission import SubmissionCreate, SubmissionRead
 from app.services.code_checker import check_submission
 from app.services.llm_client import LLMGenerationError
-from app.services.material_generator import generate_material
+from app.services.material_critic_agent import generate_material_with_review
 
 router = APIRouter()
 
@@ -55,7 +55,7 @@ def _current_experience_level(module: Module) -> str:
 def _generate_and_store(module: Module, material_type: str, db: Session) -> Material:
     feedback_notes = _recent_feedback_notes(module, material_type)
     try:
-        content = generate_material(
+        result = generate_material_with_review(
             technology=module.learning_path.technology,
             experience_level=_current_experience_level(module),
             module_title=module.title,
@@ -72,8 +72,10 @@ def _generate_and_store(module: Module, material_type: str, db: Session) -> Mate
     material = Material(
         module_id=module.id,
         material_type=material_type,
-        content=content,
+        content=result["content"],
         version=next_version,
+        critique_passed=result["critique_passed"],
+        critique_notes=result["critique_notes"],
     )
     db.add(material)
     db.commit()

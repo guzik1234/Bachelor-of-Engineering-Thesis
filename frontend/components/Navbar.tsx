@@ -15,6 +15,9 @@ export function Navbar() {
         {user && (
           <div className="flex items-center gap-4 text-sm">
             <span className="text-slate-600">{user.full_name || user.email}</span>
+            <Link href="/stats" className="text-slate-600 hover:text-slate-900">
+              Statystyki
+            </Link>
             <Link href="/onboarding" className="text-slate-600 hover:text-slate-900">
               Preferencje
             </Link>

@@ -1,9 +1,11 @@
 import type {
+  ChatMessage,
   LearningPath,
   LearningPathSummary,
   Material,
   Preference,
   Recommendation,
+  Stats,
   Submission,
   User,
 } from "./types";
@@ -121,4 +123,16 @@ export const api = {
 
   generateRecommendation: (token: string, pathId: number) =>
     request<Recommendation>(`/api/learning-paths/${pathId}/recommendation`, { method: "POST" }, token),
+
+  getTutorMessages: (token: string, moduleId: number) =>
+    request<ChatMessage[]>(`/api/tutor/module/${moduleId}/messages`, {}, token),
+
+  askTutor: (token: string, moduleId: number, question: string) =>
+    request<ChatMessage>(
+      `/api/tutor/module/${moduleId}/messages`,
+      { method: "POST", body: JSON.stringify({ question }) },
+      token
+    ),
+
+  getStats: (token: string) => request<Stats>("/api/stats", {}, token),
 };

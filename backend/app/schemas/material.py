@@ -10,4 +10,6 @@ class MaterialRead(BaseModel):
     material_type: str
     content: dict
     version: int
+    critique_passed: bool = True
+    critique_notes: str | None = None
     created_at: datetime

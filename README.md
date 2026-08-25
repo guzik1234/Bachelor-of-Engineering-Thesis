@@ -18,21 +18,23 @@ uzasadnienie doboru technologii znajdują się w [`wymagania/`](wymagania/).
 | Backend | Python, FastAPI |
 | Baza danych | PostgreSQL (SQLAlchemy 2.0 ORM) |
 | Model LLM | Groq API (domyślnie `openai/gpt-oss-120b`) |
-| Agent AI | LangGraph + `langchain-groq` (tylko agent rekomendacji, patrz niżej) |
+| Agent AI | LangGraph + `langchain-groq` (3 agenty, patrz niżej) |
+| Retrieval (RAG) | `rank-bm25` — leksykalny retrieval bez dodatkowej infrastruktury |
 | Autoryzacja | JWT (bcrypt + python-jose) |
 | Konteneryzacja | Docker + Docker Compose |
 | Testy backendu | Pytest |
 
 Stack jest celowo uproszczony względem pierwotnej propozycji z `wymagania/1 (3).pdf` — na
-start pominięto Keycloak/Auth0 (zastąpione prostym JWT) oraz pgvector (zwykły PostgreSQL,
-dopóki nie pojawi się realna potrzeba wyszukiwania semantycznego / RAG). Te elementy można
-dołożyć w kolejnych iteracjach bez przebudowy architektury.
+start pominięto Keycloak/Auth0 (zastąpione prostym JWT) oraz pgvector. Potrzebę wyszukiwania
+semantycznego dla agenta-tutora (patrz niżej) zaspokaja lżejszy mechanizm — leksykalny retrieval
+BM25 w Pythonie — więc pgvector/embeddingi wciąż nie są potrzebne; można je dołożyć w kolejnych
+iteracjach bez przebudowy architektury, gdyby korpus materiałów znacząco urósł.
 
 Framework agentowy (LangGraph) został świadomie dołożony punktowo — tylko tam, gdzie zadanie
-faktycznie wymaga wieloetapowego działania ze stanem i samokorektą (agent rekomendacji, patrz
-sekcja niżej). Pozostałe funkcje AI (generowanie ścieżki, materiałów, ocena zadań) to celowo
-proste, pojedyncze wywołania SDK Groq przez `llm_client.py` — nie ma potrzeby przepisywania ich
-na framework, skoro nie wymagają wielu kroków ani pętli.
+faktycznie wymaga wieloetapowego działania ze stanem (agent rekomendacji, agent generator+krytyk,
+agent-tutor z RAG — patrz sekcja niżej). Pozostałe funkcje AI (generowanie ścieżki, ocena zadań)
+to celowo proste, pojedyncze wywołania SDK Groq przez `llm_client.py` — nie ma potrzeby
+przepisywania ich na framework, skoro nie wymagają wielu kroków ani pętli.
 
 ## Struktura repozytorium
 
@@ -62,6 +64,12 @@ docker-compose.yml   uruchomienie całości: PostgreSQL + backend + frontend
    https://console.groq.com/keys.
 3. `docker compose up --build`
 4. Frontend: http://localhost:3000, backend (Swagger): http://localhost:8000/docs
+
+> Projekt nie używa Alembic — schemat bazy powstaje przez `Base.metadata.create_all` przy
+> starcie (`backend/app/main.py`), co tworzy brakujące TABELE, ale nie dokłada nowych KOLUMN do
+> tabel, które już istnieją w wolumenie Postgresa. Jeśli baza z wcześniejszego uruchomienia już
+> istnieje, po aktualizacji kodu zrób `docker compose down -v` (usuwa wolumen — tylko dane
+> deweloperskie/testowe) albo ręczny `ALTER TABLE`.
 
 ### 2. Uruchomienie lokalne (bez Dockera)
 
@@ -111,10 +119,25 @@ Zgodnie z `wymagania/Wymagania Funkcjonalne I Niefunkcjonalne Ai Sciezka Edukacy
   zadań) → wywołuje model → waliduje odpowiedź względem schematu → w razie niepowodzenia wraca do
   modelu z komunikatem korygującym (pętla samokorekty, maks. 3 próby). Wynik jest zapisywany
   (`PathRecommendation`) i używany przy kolejnej generacji materiałów w danym module.
+- **Agent generator + krytyk** (`backend/app/services/material_critic_agent.py`) — rozszerza
+  w.f. 21–23: po wygenerowaniu materiału drugi krok LLM ocenia go (poprawność merytoryczna,
+  dopasowanie do poziomu, zgodność z wcześniejszymi opiniami kursantów) i w razie odrzucenia
+  wymusza jedną regenerację z uwzględnieniem uwag krytyka, zanim treść trafi do kursanta. Wynik
+  oceny (`critique_passed`, `critique_notes`) jest zapisywany przy materiale i widoczny w UI.
+- **Agent-tutor (chatbot Q&A) z RAG** (`backend/app/services/tutor_agent.py`, w.f. 1.2.10) —
+  architektura retrieve→generate: leksykalny retrieval (BM25, `rank-bm25`) po materiałach całej
+  ścieżki (nie tylko bieżącego modułu, więc kursant może pytać też o wcześniejsze lekcje),
+  odpowiedź LLM ugruntowana w pobranych fragmentach, z podaniem modułu źródłowego. Historia
+  rozmowy per moduł jest zapisywana (`ChatMessage`).
+- Statystyki nauki i porównanie ścieżek (w.f. 1.2.14, 1.2.16) — strona `/stats`
+  (`backend/app/api/routes/stats.py`, `frontend/app/stats/page.tsx`): zbiorcze KPI (ukończenie,
+  średnia ocena, zdawalność zadań) oraz wykresy słupkowe porównujące poszczególne ścieżki, plus
+  zestawienie tempa nauki z agenta rekomendacji. Reużywa `collect_signals` z agenta rekomendacji
+  (ważona agregacja po wszystkich ścieżkach użytkownika) zamiast duplikować logikę. Ścieżki bez
+  żadnych ocen/zgłoszonych zadań są pomijane w odpowiednim wykresie zamiast pokazywać mylące 0%.
 
 Nie zaimplementowane jeszcze (lista „powinien”, `wymagania/...pdf` §1.2) — naturalne kolejne
-kroki: eksport do PDF, chatbot-tutor Q&A w kontekście lekcji,
-statystyki i raporty, wersja wielojęzyczna, powiadomienia, RAG na dokumentacji technologicznej.
+kroki: eksport do PDF, wersja wielojęzyczna, powiadomienia.
 
 ## Rejestrowanie 3–4 ścieżek edukacyjnych
 

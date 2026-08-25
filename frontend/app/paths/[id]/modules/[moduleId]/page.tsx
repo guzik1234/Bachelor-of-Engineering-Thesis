@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
-import type { Material, MaterialType, Submission } from "@/lib/types";
+import type { ChatMessage, Material, MaterialType, Submission } from "@/lib/types";
 
 const TYPE_LABELS: Record<MaterialType, string> = {
   text: "Wyjaśnienie",
@@ -73,7 +73,14 @@ function MaterialCard({
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-slate-900">{TYPE_LABELS[material.material_type]}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-slate-900">{TYPE_LABELS[material.material_type]}</h2>
+          {material.critique_passed && (
+            <span className="text-xs text-green-600" title="Zweryfikowane przez agenta AI (generator + krytyk)">
+              ✓ zweryfikowane przez AI
+            </span>
+          )}
+        </div>
         <button
           onClick={handleRegenerate}
           disabled={regenerating}
@@ -82,6 +89,13 @@ function MaterialCard({
           {regenerating ? "Generowanie…" : "Wygeneruj ponownie"}
         </button>
       </div>
+
+      {material.critique_notes && (
+        <details className="text-xs text-slate-500">
+          <summary className="cursor-pointer select-none">Ocena agenta-krytyka</summary>
+          <p className="mt-1">{material.critique_notes}</p>
+        </details>
+      )}
 
       {material.material_type === "text" && (
         <p className="whitespace-pre-wrap text-sm text-slate-700">{material.content.explanation}</p>
@@ -246,6 +260,85 @@ function MaterialCard({
   );
 }
 
+function TutorChat({ moduleId, token }: { moduleId: number; token: string }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getTutorMessages(token, moduleId).then(setMessages);
+  }, [token, moduleId]);
+
+  async function handleAsk() {
+    const trimmed = question.trim();
+    if (!trimmed || loading) return;
+
+    const optimisticUserMessage: ChatMessage = {
+      id: -Date.now(),
+      role: "user",
+      content: trimmed,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticUserMessage]);
+    setQuestion("");
+    setLoading(true);
+    setError(null);
+
+    try {
+      const answer = await api.askTutor(token, moduleId, trimmed);
+      setMessages((prev) => [...prev, answer]);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nie udało się uzyskać odpowiedzi.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5">
+      <h2 className="font-semibold text-slate-900">Zapytaj tutora AI</h2>
+      <p className="text-xs text-slate-500">
+        Tutor odpowiada na podstawie materiałów całej ścieżki — możesz pytać też o wcześniejsze lekcje.
+      </p>
+
+      {messages.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
+                m.role === "user" ? "self-end bg-slate-900 text-white" : "self-start bg-slate-100 text-slate-800"
+              }`}
+            >
+              {m.content}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+          placeholder="Zadaj pytanie o tę ścieżkę…"
+          className="flex-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm"
+        />
+        <button
+          onClick={handleAsk}
+          disabled={loading || question.trim().length === 0}
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {loading ? "Myślę…" : "Wyślij"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function ModuleDetailPage() {
   const { token, loading } = useRequireAuth();
   const params = useParams<{ id: string; moduleId: string }>();
@@ -337,6 +430,8 @@ export default function ModuleDetailPage() {
             >
               {moduleInfo?.completed ? "✓ Moduł ukończony" : "Oznacz jako ukończony"}
             </button>
+
+            <TutorChat moduleId={moduleId} token={token} />
           </>
         )}
       </main>

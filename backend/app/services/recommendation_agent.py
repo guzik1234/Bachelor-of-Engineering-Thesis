@@ -152,6 +152,7 @@ def collect_signals(path: Any, preference: Any) -> dict[str, Any]:
         "avg_days_per_module": avg_days_per_module,
         "available_hours_per_week": preference.available_hours_per_week if preference else 5.0,
         "avg_feedback_rating": avg_feedback_rating,
+        "feedback_count": len(ratings),
         "exercise_pass_rate": exercise_pass_rate,
         "exercise_attempts": exercise_attempts,
     }
