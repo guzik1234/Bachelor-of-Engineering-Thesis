@@ -18,15 +18,21 @@ uzasadnienie doboru technologii znajdują się w [`wymagania/`](wymagania/).
 | Backend | Python, FastAPI |
 | Baza danych | PostgreSQL (SQLAlchemy 2.0 ORM) |
 | Model LLM | Groq API (domyślnie `openai/gpt-oss-120b`) |
+| Agent AI | LangGraph + `langchain-groq` (tylko agent rekomendacji, patrz niżej) |
 | Autoryzacja | JWT (bcrypt + python-jose) |
 | Konteneryzacja | Docker + Docker Compose |
 | Testy backendu | Pytest |
 
 Stack jest celowo uproszczony względem pierwotnej propozycji z `wymagania/1 (3).pdf` — na
-start pominięto Keycloak/Auth0 (zastąpione prostym JWT), LangChain/LlamaIndex (bezpośrednie
-wywołania SDK Groq) oraz pgvector (zwykły PostgreSQL, dopóki nie pojawi się realna potrzeba
-wyszukiwania semantycznego / RAG). Te elementy można dołożyć w kolejnych iteracjach bez
-przebudowy architektury.
+start pominięto Keycloak/Auth0 (zastąpione prostym JWT) oraz pgvector (zwykły PostgreSQL,
+dopóki nie pojawi się realna potrzeba wyszukiwania semantycznego / RAG). Te elementy można
+dołożyć w kolejnych iteracjach bez przebudowy architektury.
+
+Framework agentowy (LangGraph) został świadomie dołożony punktowo — tylko tam, gdzie zadanie
+faktycznie wymaga wieloetapowego działania ze stanem i samokorektą (agent rekomendacji, patrz
+sekcja niżej). Pozostałe funkcje AI (generowanie ścieżki, materiałów, ocena zadań) to celowo
+proste, pojedyncze wywołania SDK Groq przez `llm_client.py` — nie ma potrzeby przepisywania ich
+na framework, skoro nie wymagają wielu kroków ani pętli.
 
 ## Struktura repozytorium
 
@@ -97,9 +103,17 @@ Zgodnie z `wymagania/Wymagania Funkcjonalne I Niefunkcjonalne Ai Sciezka Edukacy
   względem treści zadania (bez wykonywania kodu) i zwraca werdykt zaliczone/niezaliczone wraz
   z mocnymi stronami i konkretnymi wskazówkami do poprawy; historia prób jest zapisywana
   (rozszerzenie w.f. 15, inspirowane automatyczną oceną kodu w Codecademy z `wymagania/1 1.pdf`)
+- Dostosowywanie poziomu trudności materiałów do postępów kursanta (w.f. 10) oraz rekomendacja
+  kolejnego tematu i ocena tempa nauki (w.f. 1.2.1–1.2.2) — realizowane przez **agenta AI**
+  zbudowanego na LangGraph (`backend/app/services/recommendation_agent.py`), w odróżnieniu od
+  pozostałych funkcji AI w projekcie (pojedyncze wywołanie `llm_client.generate_json`). Agent to
+  wieloetapowy graf stanu: zbiera sygnały o postępach (ukończone moduły, tempo, oceny, zdawalność
+  zadań) → wywołuje model → waliduje odpowiedź względem schematu → w razie niepowodzenia wraca do
+  modelu z komunikatem korygującym (pętla samokorekty, maks. 3 próby). Wynik jest zapisywany
+  (`PathRecommendation`) i używany przy kolejnej generacji materiałów w danym module.
 
 Nie zaimplementowane jeszcze (lista „powinien”, `wymagania/...pdf` §1.2) — naturalne kolejne
-kroki: rekomendacje kolejnych tematów, eksport do PDF, chatbot-tutor Q&A w kontekście lekcji,
+kroki: eksport do PDF, chatbot-tutor Q&A w kontekście lekcji,
 statystyki i raporty, wersja wielojęzyczna, powiadomienia, RAG na dokumentacji technologicznej.
 
 ## Rejestrowanie 3–4 ścieżek edukacyjnych

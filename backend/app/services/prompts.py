@@ -113,6 +113,70 @@ Zwróć WYŁĄCZNIE obiekt JSON zgodny dokładnie z tym schematem:
 {schema}"""
 
 
+PACE_LABELS = {
+    "slower": "wolniej niż zakładano",
+    "on_track": "zgodnie z założonym tempem",
+    "faster": "szybciej niż zakładano",
+}
+
+
+def build_recommendation_system_prompt() -> str:
+    return (
+        "Jesteś mentorem-agentem analizującym postępy kursanta na ścieżce edukacyjnej "
+        "programisty. Na podstawie dostarczonych statystyk oceniasz tempo nauki, "
+        "rekomendujesz poziom trudności kolejnych materiałów oraz wskazujesz, na którym "
+        "z niedokończonych modułów kursant powinien się skupić dalej. Zawsze odpowiadasz "
+        "wyłącznie poprawnym obiektem JSON, bez żadnego dodatkowego tekstu przed ani po "
+        "nim, zgodnym dokładnie z podanym schematem. Uzasadnienie musi być napisane w "
+        "języku polskim, konkretne i odwoływać się do przekazanych statystyk."
+    )
+
+
+def build_recommendation_user_prompt(
+    technology: str,
+    experience_level: str,
+    signals: dict,
+    candidate_modules: list[dict],
+) -> str:
+    level_label = LEVEL_LABELS.get(experience_level, experience_level)
+    modules_block = (
+        "\n".join(f"{m['index']}: {m['title']} — {m['summary']}" for m in candidate_modules)
+        or "(brak niedokończonych modułów)"
+    )
+
+    return f"""Przeanalizuj postępy kursanta na ścieżce edukacyjnej: {technology}.
+
+Statystyki postępów:
+- aktualny poziom zaawansowania ścieżki: {level_label}
+- ukończone moduły: {signals['completed_modules']}/{signals['total_modules']} \
+({signals['completion_ratio']:.0%})
+- średnie tempo ukończenia modułu: {signals['avg_days_per_module']} dni \
+(przy deklarowanym czasie {signals['available_hours_per_week']} godz./tydzień)
+- średnia ocena materiałów przez kursanta (1-5): {signals['avg_feedback_rating']}
+- zdawalność zadań praktycznych: {signals['exercise_pass_rate']:.0%} \
+({signals['exercise_attempts']} podejść)
+
+Niedokończone moduły (indeks: tytuł — opis):
+{modules_block}
+
+Zwróć WYŁĄCZNIE obiekt JSON o dokładnie takiej strukturze:
+{{
+  "pace_assessment": "slower" | "on_track" | "faster",
+  "recommended_experience_level": "beginner" | "intermediate" | "advanced",
+  "recommended_module_index": <liczba całkowita z listy modułów powyżej albo null, \
+jeśli lista jest pusta>,
+  "rationale": "2-4 zdania uzasadnienia odwołujące się do statystyk kursanta"
+}}"""
+
+
+def build_recommendation_correction_prompt(error: str) -> str:
+    return (
+        "Poprzednia odpowiedź nie spełniała wymagań: "
+        f"{error}. Popraw ją i zwróć WYŁĄCZNIE poprawny obiekt JSON zgodny z podanym "
+        "wcześniej schematem, bez żadnego dodatkowego tekstu."
+    )
+
+
 def build_code_check_system_prompt() -> str:
     return (
         "Jesteś doświadczonym programistą i mentorem oceniającym rozwiązania zadań "

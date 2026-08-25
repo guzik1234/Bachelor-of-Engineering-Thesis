@@ -43,12 +43,21 @@ def _recent_feedback_notes(module: Module, material_type: str) -> list[str]:
     return notes[-5:]
 
 
+def _current_experience_level(module: Module) -> str:
+    latest_recommendation = (
+        module.learning_path.recommendations[0] if module.learning_path.recommendations else None
+    )
+    if latest_recommendation:
+        return latest_recommendation.recommended_experience_level
+    return module.learning_path.experience_level
+
+
 def _generate_and_store(module: Module, material_type: str, db: Session) -> Material:
     feedback_notes = _recent_feedback_notes(module, material_type)
     try:
         content = generate_material(
             technology=module.learning_path.technology,
-            experience_level=module.learning_path.experience_level,
+            experience_level=_current_experience_level(module),
             module_title=module.title,
             module_summary=module.summary,
             material_type=material_type,

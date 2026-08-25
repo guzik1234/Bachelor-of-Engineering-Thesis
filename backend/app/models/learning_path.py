@@ -28,3 +28,8 @@ class LearningPath(Base):
         cascade="all, delete-orphan",
         order_by="Module.order_index",
     )
+    recommendations: Mapped[list["PathRecommendation"]] = relationship(
+        back_populates="learning_path",
+        cascade="all, delete-orphan",
+        order_by="PathRecommendation.id.desc()",
+    )

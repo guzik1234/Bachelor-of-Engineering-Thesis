@@ -1,4 +1,12 @@
-import type { LearningPath, LearningPathSummary, Material, Preference, Submission, User } from "./types";
+import type {
+  LearningPath,
+  LearningPathSummary,
+  Material,
+  Preference,
+  Recommendation,
+  Submission,
+  User,
+} from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -101,4 +109,16 @@ export const api = {
 
   listSubmissions: (token: string, materialId: number) =>
     request<Submission[]>(`/api/materials/${materialId}/submissions`, {}, token),
+
+  getRecommendation: async (token: string, pathId: number): Promise<Recommendation | null> => {
+    try {
+      return await request<Recommendation>(`/api/learning-paths/${pathId}/recommendation`, {}, token);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  },
+
+  generateRecommendation: (token: string, pathId: number) =>
+    request<Recommendation>(`/api/learning-paths/${pathId}/recommendation`, { method: "POST" }, token),
 };

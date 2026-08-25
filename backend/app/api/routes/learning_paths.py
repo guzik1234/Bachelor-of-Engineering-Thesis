@@ -5,6 +5,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.learning_path import LearningPath
 from app.models.module import Module
+from app.models.recommendation import PathRecommendation
 from app.models.user import User
 from app.schemas.learning_path import (
     LearningPathGenerateRequest,
@@ -12,8 +13,14 @@ from app.schemas.learning_path import (
     LearningPathSummary,
     ModuleRead,
 )
+from app.schemas.recommendation import RecommendationRead
 from app.services.llm_client import LLMGenerationError
 from app.services.path_generator import generate_learning_path
+from app.services.recommendation_agent import (
+    collect_signals,
+    generate_recommendation,
+    incomplete_modules,
+)
 
 router = APIRouter()
 
@@ -133,3 +140,55 @@ def delete_path(path_id: int, current_user: User = Depends(get_current_user), db
     path = _get_owned_path(path_id, current_user, db)
     db.delete(path)
     db.commit()
+
+
+def _to_recommendation_read(rec: PathRecommendation) -> RecommendationRead:
+    return RecommendationRead(
+        id=rec.id,
+        pace_assessment=rec.pace_assessment,
+        recommended_experience_level=rec.recommended_experience_level,
+        recommended_module_id=rec.recommended_module_id,
+        recommended_module_title=rec.recommended_module.title if rec.recommended_module else None,
+        rationale=rec.rationale,
+        created_at=rec.created_at,
+    )
+
+
+@router.post("/{path_id}/recommendation", response_model=RecommendationRead, status_code=status.HTTP_201_CREATED)
+def generate_path_recommendation(
+    path_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    path = _get_owned_path(path_id, current_user, db)
+
+    signals = collect_signals(path, current_user.preference)
+    candidates = incomplete_modules(path)
+
+    try:
+        result = generate_recommendation(
+            technology=path.technology,
+            experience_level=path.experience_level,
+            signals=signals,
+            candidate_modules=candidates,
+        )
+    except (LLMGenerationError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    recommendation = PathRecommendation(learning_path_id=path.id, **result)
+    db.add(recommendation)
+    db.commit()
+    db.refresh(recommendation)
+    return _to_recommendation_read(recommendation)
+
+
+@router.get("/{path_id}/recommendation", response_model=RecommendationRead)
+def get_path_recommendation(
+    path_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    path = _get_owned_path(path_id, current_user, db)
+    if not path.recommendations:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brak rekomendacji dla tej ścieżki.")
+    return _to_recommendation_read(path.recommendations[0])

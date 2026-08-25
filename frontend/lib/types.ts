@@ -74,6 +74,18 @@ export interface Material {
   created_at: string;
 }
 
+export type PaceAssessment = "slower" | "on_track" | "faster";
+
+export interface Recommendation {
+  id: number;
+  pace_assessment: PaceAssessment;
+  recommended_experience_level: ExperienceLevel;
+  recommended_module_id: number | null;
+  recommended_module_title: string | null;
+  rationale: string;
+  created_at: string;
+}
+
 export interface Submission {
   id: number;
   material_id: number;
