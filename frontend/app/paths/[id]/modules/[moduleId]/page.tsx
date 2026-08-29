@@ -5,6 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/field";
+import { LoadingState, Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import type { ChatMessage, Material, MaterialType, Submission } from "@/lib/types";
 
 const TYPE_LABELS: Record<MaterialType, string> = {
@@ -13,6 +19,23 @@ const TYPE_LABELS: Record<MaterialType, string> = {
   exercise: "Zadanie praktyczne",
   quiz: "Quiz",
 };
+
+const TYPE_ICONS: Record<MaterialType, string> = {
+  text: "M4 6h16M4 12h16M4 18h10",
+  code_example: "m8 6-6 6 6 6M16 6l6 6-6 6",
+  exercise: "M9 12.5 11.5 15 16 9M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+  quiz: "M9.1 9a2.9 2.9 0 1 1 3.9 2.7c-.9.4-1.5 1.2-1.5 2.3M12 17.5h.01",
+};
+
+function MaterialIcon({ type }: { type: MaterialType }) {
+  return (
+    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d={TYPE_ICONS[type]} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
 
 function MaterialCard({
   material,
@@ -71,40 +94,50 @@ function MaterialCard({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-slate-900">{TYPE_LABELS[material.material_type]}</h2>
-          {material.critique_passed && (
-            <span className="text-xs text-green-600" title="Zweryfikowane przez agenta AI (generator + krytyk)">
-              ✓ zweryfikowane przez AI
-            </span>
-          )}
+    <Card className="flex flex-col gap-4 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <MaterialIcon type={material.material_type} />
+          <div>
+            <h2 className="font-semibold text-slate-900">{TYPE_LABELS[material.material_type]}</h2>
+            {material.critique_passed && (
+              <span
+                className="inline-flex items-center gap-1 text-xs text-green-600"
+                title="Zweryfikowane przez agenta AI (generator + krytyk)"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M5 12.5 10 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                zweryfikowane przez AI
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={handleRegenerate}
           disabled={regenerating}
-          className="text-xs text-slate-500 underline hover:text-slate-900 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
         >
+          {regenerating && <Spinner className="h-3 w-3" />}
           {regenerating ? "Generowanie…" : "Wygeneruj ponownie"}
         </button>
       </div>
 
       {material.critique_notes && (
-        <details className="text-xs text-slate-500">
-          <summary className="cursor-pointer select-none">Ocena agenta-krytyka</summary>
+        <details className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          <summary className="cursor-pointer select-none font-medium">Ocena agenta-krytyka</summary>
           <p className="mt-1">{material.critique_notes}</p>
         </details>
       )}
 
       {material.material_type === "text" && (
-        <p className="whitespace-pre-wrap text-sm text-slate-700">{material.content.explanation}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{material.content.explanation}</p>
       )}
 
       {material.material_type === "code_example" && (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-slate-700">{material.content.explanation}</p>
-          <pre className="overflow-x-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-slate-700">{material.content.explanation}</p>
+          <pre className="overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100 shadow-inner">
             <code>{material.content.code}</code>
           </pre>
         </div>
@@ -112,9 +145,9 @@ function MaterialCard({
 
       {material.material_type === "exercise" && (
         <div className="flex flex-col gap-3 text-sm text-slate-700">
-          <p className="whitespace-pre-wrap">{material.content.instructions}</p>
+          <p className="whitespace-pre-wrap leading-relaxed">{material.content.instructions}</p>
           {material.content.hints && material.content.hints.length > 0 && (
-            <ul className="list-inside list-disc text-slate-600">
+            <ul className="list-inside list-disc space-y-1 text-slate-600">
               {material.content.hints.map((hint, i) => (
                 <li key={i}>{hint}</li>
               ))}
@@ -122,18 +155,21 @@ function MaterialCard({
           )}
           {material.content.solution && (
             <div>
-              <button onClick={() => setShowSolution((v) => !v)} className="text-xs text-slate-500 underline">
+              <button
+                onClick={() => setShowSolution((v) => !v)}
+                className="text-xs font-medium text-brand-600 hover:text-brand-700"
+              >
                 {showSolution ? "Ukryj rozwiązanie" : "Pokaż przykładowe rozwiązanie"}
               </button>
               {showSolution && (
-                <pre className="mt-2 overflow-x-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
+                <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100 shadow-inner">
                   <code>{material.content.solution}</code>
                 </pre>
               )}
             </div>
           )}
 
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+          <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-4">
             <p className="text-xs font-medium text-slate-500">Wklej swoje rozwiązanie do sprawdzenia przez AI</p>
             <textarea
               value={code}
@@ -141,30 +177,37 @@ function MaterialCard({
               placeholder="Wklej tutaj swój kod…"
               rows={8}
               spellCheck={false}
-              className="rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 font-mono text-xs text-slate-800 outline-none transition focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
             />
-            {checkError && <p className="text-sm text-red-600">{checkError}</p>}
-            <button
-              onClick={handleCheckCode}
-              disabled={checking || code.trim().length === 0}
-              className="self-start rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-            >
+            {checkError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{checkError}</p>}
+            <Button onClick={handleCheckCode} disabled={checking || code.trim().length === 0} size="sm" className="self-start">
+              {checking && <Spinner className="h-3.5 w-3.5" />}
               {checking ? "Sprawdzanie…" : "Sprawdź rozwiązanie"}
-            </button>
+            </Button>
 
             {submissions.length > 0 && (
-              <div className="mt-2 flex flex-col gap-3">
+              <div className="mt-1 flex flex-col gap-3">
                 {submissions.map((s) => (
                   <div
                     key={s.id}
-                    className={`rounded-md border p-3 text-sm ${
-                      s.passed ? "border-green-300 bg-green-50" : "border-amber-300 bg-amber-50"
-                    }`}
+                    className={cn(
+                      "rounded-xl border p-3.5 text-sm",
+                      s.passed ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"
+                    )}
                   >
-                    <p className={`font-medium ${s.passed ? "text-green-700" : "text-amber-700"}`}>
-                      {s.passed ? "✓ Zaliczone" : "Wymaga poprawy"}
+                    <p className={cn("flex items-center gap-1.5 font-medium", s.passed ? "text-green-700" : "text-amber-700")}>
+                      {s.passed ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M5 12.5 10 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 9v4m0 4h.01M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                      {s.passed ? "Zaliczone" : "Wymaga poprawy"}
                     </p>
-                    <p className="mt-1 text-slate-700">{s.feedback}</p>
+                    <p className="mt-1.5 text-slate-700">{s.feedback}</p>
                     {s.strengths.length > 0 && (
                       <div className="mt-2">
                         <p className="text-xs font-medium text-slate-500">Mocne strony:</p>
@@ -194,7 +237,7 @@ function MaterialCard({
       )}
 
       {material.material_type === "quiz" && material.content.questions && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {material.content.questions.map((q, qIndex) => {
             const selected = selectedAnswers[qIndex];
             const showResult = selected !== undefined;
@@ -203,7 +246,7 @@ function MaterialCard({
                 <p className="text-sm font-medium text-slate-900">
                   {qIndex + 1}. {q.question}
                 </p>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   {q.options.map((option, oIndex) => {
                     const isSelected = selected === oIndex;
                     const isCorrect = oIndex === q.correct_index;
@@ -212,20 +255,21 @@ function MaterialCard({
                         key={oIndex}
                         onClick={() => setSelectedAnswers((prev) => ({ ...prev, [qIndex]: oIndex }))}
                         disabled={showResult}
-                        className={`rounded-md border px-3 py-1.5 text-left text-sm ${
+                        className={cn(
+                          "rounded-xl border px-3.5 py-2 text-left text-sm transition",
                           showResult && isCorrect
-                            ? "border-green-500 bg-green-50"
+                            ? "border-green-400 bg-green-50 text-green-800"
                             : showResult && isSelected
-                              ? "border-red-500 bg-red-50"
-                              : "border-slate-200"
-                        }`}
+                              ? "border-red-400 bg-red-50 text-red-800"
+                              : "border-slate-200 hover:border-brand-300 hover:bg-brand-50/40"
+                        )}
                       >
                         {option}
                       </button>
                     );
                   })}
                 </div>
-                {showResult && <p className="text-xs text-slate-600">{q.explanation}</p>}
+                {showResult && <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{q.explanation}</p>}
               </div>
             );
           })}
@@ -233,30 +277,35 @@ function MaterialCard({
       )}
 
       {!feedbackSent ? (
-        <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-          <p className="text-xs text-slate-500">Jak oceniasz ten materiał?</p>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-4">
+          <p className="text-xs font-medium text-slate-500">Jak oceniasz ten materiał?</p>
+          <div className="flex flex-wrap items-center gap-2">
             {[1, 2, 3, 4, 5].map((rating) => (
               <button
                 key={rating}
                 onClick={() => submitFeedback(rating)}
-                className="rounded-md border border-slate-200 px-2.5 py-1 text-sm hover:border-slate-400"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-medium text-slate-600 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
               >
                 {rating}
               </button>
             ))}
-            <input
+            <Input
               value={feedbackComment}
               onChange={(e) => setFeedbackComment(e.target.value)}
               placeholder="Komentarz (opcjonalnie)"
-              className="flex-1 rounded-md border border-slate-200 px-2 py-1 text-sm"
+              className="flex-1 py-1.5 text-sm"
             />
           </div>
         </div>
       ) : (
-        <p className="border-t border-slate-100 pt-3 text-xs text-green-600">Dziękujemy za opinię!</p>
+        <p className="flex items-center gap-1.5 border-t border-slate-100 pt-4 text-xs font-medium text-green-600">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <path d="M5 12.5 10 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Dziękujemy za opinię!
+        </p>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -296,20 +345,34 @@ function TutorChat({ moduleId, token }: { moduleId: number; token: string }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold text-slate-900">Zapytaj tutora AI</h2>
-      <p className="text-xs text-slate-500">
-        Tutor odpowiada na podstawie materiałów całej ścieżki — możesz pytać też o wcześniejsze lekcje.
-      </p>
+    <Card className="flex flex-col gap-3 p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path
+              d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-4-1L3 20l1.2-3.6a8.38 8.38 0 0 1-1-4A8.5 8.5 0 0 1 12 3a8.38 8.38 0 0 1 8.5 8.5Z"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <div>
+          <h2 className="font-semibold text-slate-900">Zapytaj tutora AI</h2>
+          <p className="text-xs text-slate-500">Tutor odpowiada na podstawie materiałów całej ścieżki.</p>
+        </div>
+      </div>
 
       {messages.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 py-1">
           {messages.map((m) => (
             <div
               key={m.id}
-              className={`max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
-                m.role === "user" ? "self-end bg-slate-900 text-white" : "self-start bg-slate-100 text-slate-800"
-              }`}
+              className={cn(
+                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm",
+                m.role === "user"
+                  ? "self-end rounded-br-sm bg-brand-gradient text-white"
+                  : "self-start rounded-bl-sm bg-slate-100 text-slate-800"
+              )}
             >
               {m.content}
             </div>
@@ -317,25 +380,22 @@ function TutorChat({ moduleId, token }: { moduleId: number; token: string }) {
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
-      <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
-        <input
+      <div className="flex items-center gap-2 border-t border-slate-100 pt-3.5">
+        <Input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAsk()}
           placeholder="Zadaj pytanie o tę ścieżkę…"
-          className="flex-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm"
+          className="flex-1 py-2"
         />
-        <button
-          onClick={handleAsk}
-          disabled={loading || question.trim().length === 0}
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        >
+        <Button onClick={handleAsk} disabled={loading || question.trim().length === 0} size="sm">
+          {loading && <Spinner className="h-3.5 w-3.5" />}
           {loading ? "Myślę…" : "Wyślij"}
-        </button>
+        </Button>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -390,7 +450,7 @@ export default function ModuleDetailPage() {
     await api.setProgress(token, moduleId, next);
   }
 
-  if (loading || !token) return null;
+  if (loading || !token) return <LoadingState />;
 
   return (
     <>
@@ -398,14 +458,22 @@ export default function ModuleDetailPage() {
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-12">
         <button
           onClick={() => router.push(`/paths/${pathId}`)}
-          className="self-start text-sm text-slate-500 underline"
+          className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-slate-500 transition hover:text-brand-700"
         >
-          ← Wróć do ścieżki
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M15 6 9 12l6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Wróć do ścieżki
         </button>
 
-        {moduleInfo && <h1 className="text-2xl font-bold">{moduleInfo.title}</h1>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {!materials && !error && <p className="text-slate-600">Generowanie materiałów…</p>}
+        {moduleInfo && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">{moduleInfo.title}</h1>
+            {moduleInfo.completed && <Badge tone="green">Ukończony</Badge>}
+          </div>
+        )}
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        {!materials && !error && <LoadingState label="Generowanie materiałów…" />}
 
         {materials && (
           <>
@@ -422,14 +490,19 @@ export default function ModuleDetailPage() {
               ))}
             </div>
 
-            <button
+            <Button
               onClick={handleToggleComplete}
-              className={`self-start rounded-md px-4 py-2 text-sm font-medium ${
-                moduleInfo?.completed ? "bg-green-600 text-white" : "bg-slate-900 text-white"
-              }`}
+              variant={moduleInfo?.completed ? "secondary" : "primary"}
+              size="lg"
+              className="self-start"
             >
-              {moduleInfo?.completed ? "✓ Moduł ukończony" : "Oznacz jako ukończony"}
-            </button>
+              {moduleInfo?.completed && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M5 12.5 10 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+              {moduleInfo?.completed ? "Moduł ukończony" : "Oznacz jako ukończony"}
+            </Button>
 
             <TutorChat moduleId={moduleId} token={token} />
           </>

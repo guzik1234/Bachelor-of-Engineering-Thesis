@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
+import { Card } from "@/components/ui/card";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { LoadingState, Spinner } from "@/components/ui/spinner";
 import type { ExperienceLevel } from "@/lib/types";
 
 const SUGGESTED_TECHNOLOGIES = ["Java (Spring Boot)", "React", "Python", "JavaScript (Full Stack)"];
@@ -38,64 +42,60 @@ export default function NewPathPage() {
     }
   }
 
-  if (loading || !token) return null;
+  if (loading || !token) return <LoadingState />;
 
   return (
     <>
       <Navbar />
       <main className="mx-auto flex max-w-xl flex-col gap-6 px-4 py-12">
-        <h1 className="text-2xl font-bold">Wygeneruj nową ścieżkę edukacyjną</h1>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm">
-            Technologia / język programowania
-            <input
-              required
-              list="technology-suggestions"
-              value={technology}
-              onChange={(e) => setTechnology(e.target.value)}
-              placeholder="np. React, Java, Spring Boot, Python"
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-            <datalist id="technology-suggestions">
-              {SUGGESTED_TECHNOLOGIES.map((tech) => (
-                <option key={tech} value={tech} />
-              ))}
-            </datalist>
-          </label>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Wygeneruj nową ścieżkę edukacyjną</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Opisz czego chcesz się nauczyć — AI zbuduje kompletny plan z materiałami i zadaniami.
+          </p>
+        </div>
 
-          <label className="flex flex-col gap-1 text-sm">
-            Poziom zaawansowania
-            <select
-              value={experienceLevel}
-              onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              <option value="beginner">Początkujący</option>
-              <option value="intermediate">Średniozaawansowany</option>
-              <option value="advanced">Zaawansowany</option>
-            </select>
-          </label>
+        <Card className="p-6">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Field label="Technologia / język programowania">
+              <Input
+                required
+                list="technology-suggestions"
+                value={technology}
+                onChange={(e) => setTechnology(e.target.value)}
+                placeholder="np. React, Java, Spring Boot, Python"
+              />
+              <datalist id="technology-suggestions">
+                {SUGGESTED_TECHNOLOGIES.map((tech) => (
+                  <option key={tech} value={tech} />
+                ))}
+              </datalist>
+            </Field>
 
-          <label className="flex flex-col gap-1 text-sm">
-            Cel nauki (opcjonalnie)
-            <textarea
-              value={learningGoal}
-              onChange={(e) => setLearningGoal(e.target.value)}
-              placeholder="np. przygotowanie do pierwszej pracy jako backend developer"
-              className="rounded-md border border-slate-300 px-3 py-2"
-              rows={3}
-            />
-          </label>
+            <Field label="Poziom zaawansowania">
+              <Select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value as ExperienceLevel)}>
+                <option value="beginner">Początkujący</option>
+                <option value="intermediate">Średniozaawansowany</option>
+                <option value="advanced">Zaawansowany</option>
+              </Select>
+            </Field>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-          >
-            {submitting ? "Generowanie ścieżki (może potrwać kilka-kilkanaście sekund)…" : "Generuj ścieżkę"}
-          </button>
-        </form>
+            <Field label="Cel nauki (opcjonalnie)">
+              <Textarea
+                value={learningGoal}
+                onChange={(e) => setLearningGoal(e.target.value)}
+                placeholder="np. przygotowanie do pierwszej pracy jako backend developer"
+                rows={3}
+              />
+            </Field>
+
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+            <Button type="submit" disabled={submitting} size="lg" className="mt-1">
+              {submitting && <Spinner />}
+              {submitting ? "Generowanie ścieżki (może potrwać kilka-kilkanaście sekund)…" : "Generuj ścieżkę"}
+            </Button>
+          </form>
+        </Card>
       </main>
     </>
   );

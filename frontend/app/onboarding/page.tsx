@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import type { LearningStyle, MaterialType } from "@/lib/types";
 
 const MATERIAL_OPTIONS: { value: MaterialType; label: string }[] = [
@@ -14,11 +19,48 @@ const MATERIAL_OPTIONS: { value: MaterialType; label: string }[] = [
   { value: "quiz", label: "Quizy sprawdzające wiedzę" },
 ];
 
-const STYLE_OPTIONS: { value: LearningStyle; label: string }[] = [
-  { value: "theory", label: "Teoria" },
-  { value: "practice", label: "Praktyka" },
-  { value: "mixed", label: "Mieszany" },
+const STYLE_OPTIONS: { value: LearningStyle; label: string; description: string }[] = [
+  { value: "theory", label: "Teoria", description: "Skup się na wyjaśnieniach i koncepcjach" },
+  { value: "practice", label: "Praktyka", description: "Ucz się głównie przez zadania i kod" },
+  { value: "mixed", label: "Mieszany", description: "Zrównoważona mieszanka obu podejść" },
 ];
+
+function OptionPill({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left text-sm font-medium transition",
+        selected
+          ? "border-brand-400 bg-brand-50 text-brand-700 ring-4 ring-brand-500/10"
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-4 w-4 flex-none items-center justify-center rounded-full border transition",
+          selected ? "border-brand-500 bg-brand-500 text-white" : "border-slate-300"
+        )}
+      >
+        {selected && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+            <path d="M5 12.5 10 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+      {children}
+    </button>
+  );
+}
 
 export default function OnboardingPage() {
   const { token, loading } = useRequireAuth();
@@ -64,66 +106,91 @@ export default function OnboardingPage() {
     }
   }
 
-  if (loading || !token) return null;
+  if (loading || !token) return <LoadingState />;
 
   return (
     <>
       <Navbar />
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
-        <h1 className="text-2xl font-bold">Twoje preferencje nauki</h1>
-        <p className="text-slate-600">
-          Te informacje pomagają modelowi AI dopasować generowane ścieżki i materiały do Ciebie.
-        </p>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Twoje preferencje nauki</h1>
+          <p className="mt-1 text-slate-600">
+            Te informacje pomagają modelowi AI dopasować generowane ścieżki i materiały do Ciebie.
+          </p>
+        </div>
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 font-medium">Preferowany rodzaj materiałów</legend>
-            {MATERIAL_OPTIONS.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={materialTypes.includes(opt.value)}
-                  onChange={() => toggleMaterialType(opt.value)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </fieldset>
+          <Card className="flex flex-col gap-3 p-5">
+            <span className="font-semibold text-slate-900">Preferowany rodzaj materiałów</span>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {MATERIAL_OPTIONS.map((opt) => (
+                <OptionPill
+                  key={opt.value}
+                  selected={materialTypes.includes(opt.value)}
+                  onClick={() => toggleMaterialType(opt.value)}
+                >
+                  {opt.label}
+                </OptionPill>
+              ))}
+            </div>
+          </Card>
 
-          <label className="flex flex-col gap-1 text-sm">
-            Dostępny czas na naukę (godzin/tydzień)
-            <input
-              type="number"
-              min={1}
-              max={60}
-              value={hoursPerWeek}
-              onChange={(e) => setHoursPerWeek(Number(e.target.value))}
-              className="w-32 rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
+          <Card className="flex flex-col gap-3 p-5">
+            <span className="font-semibold text-slate-900">Dostępny czas na naukę</span>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min={1}
+                max={40}
+                value={hoursPerWeek}
+                onChange={(e) => setHoursPerWeek(Number(e.target.value))}
+                className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-slate-100 accent-brand-600"
+              />
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                value={hoursPerWeek}
+                onChange={(e) => setHoursPerWeek(Number(e.target.value))}
+                className="w-24 flex-none text-center"
+              />
+            </div>
+            <span className="text-xs text-slate-400">godzin tygodniowo</span>
+          </Card>
 
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 font-medium">Preferowany styl nauki</legend>
-            {STYLE_OPTIONS.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="learningStyle"
-                  checked={learningStyle === opt.value}
-                  onChange={() => setLearningStyle(opt.value)}
-                />
-                {opt.label}
-              </label>
-            ))}
-          </fieldset>
+          <Card className="flex flex-col gap-3 p-5">
+            <span className="font-semibold text-slate-900">Preferowany styl nauki</span>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              {STYLE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setLearningStyle(opt.value)}
+                  className={cn(
+                    "flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition",
+                    learningStyle === opt.value
+                      ? "border-brand-400 bg-brand-50 ring-4 ring-brand-500/10"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-sm font-semibold",
+                      learningStyle === opt.value ? "text-brand-700" : "text-slate-800"
+                    )}
+                  >
+                    {opt.label}
+                  </span>
+                  <span className="text-xs text-slate-500">{opt.description}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-          >
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <Button type="submit" disabled={submitting} size="lg" className="self-start">
             {submitting ? "Zapisywanie..." : "Zapisz i przejdź do panelu"}
-          </button>
+          </Button>
         </form>
       </main>
     </>

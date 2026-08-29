@@ -6,6 +6,11 @@ import Link from "next/link";
 import { useRequireAuth } from "@/lib/auth-context";
 import { api, ApiError } from "@/lib/api";
 import { Navbar } from "@/components/Navbar";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { LoadingState, Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/cn";
 import type { LearningPath, Recommendation } from "@/lib/types";
 
 const PACE_LABELS: Record<Recommendation["pace_assessment"], string> = {
@@ -50,40 +55,56 @@ export default function PathDetailPage() {
     }
   }
 
-  if (loading || !token) return null;
+  if (loading || !token) return <LoadingState />;
 
   return (
     <>
       <Navbar />
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-12">
-        {!path && <p className="text-slate-600">Wczytywanie…</p>}
+        {!path && <LoadingState />}
         {path && (
           <>
             <div>
-              <span className="text-xs font-medium uppercase text-slate-500">{path.technology}</span>
-              <h1 className="text-2xl font-bold">{path.title}</h1>
+              <Badge tone="brand" className="uppercase tracking-wide">
+                {path.technology}
+              </Badge>
+              <h1 className="mt-2 text-2xl font-bold text-slate-900">{path.title}</h1>
               <p className="mt-2 text-slate-600">{path.description}</p>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-medium text-slate-900">Rekomendacja AI</h2>
-                <button
-                  onClick={handleGenerateRecommendation}
-                  disabled={recommendationLoading}
-                  className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-                >
+            <Card className="p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path
+                        d="M12 2 14.6 8.6 21.5 9.4 16.3 14 17.8 21 12 17.4 6.2 21 7.7 14 2.5 9.4 9.4 8.6 12 2Z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <h2 className="font-semibold text-slate-900">Rekomendacja AI</h2>
+                </div>
+                <Button onClick={handleGenerateRecommendation} disabled={recommendationLoading} size="sm">
+                  {recommendationLoading && <Spinner />}
                   {recommendationLoading ? "Analizuję…" : "Wygeneruj rekomendację"}
-                </button>
+                </Button>
               </div>
 
-              {recommendationError && <p className="mt-2 text-sm text-red-600">{recommendationError}</p>}
+              {recommendationError && (
+                <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{recommendationError}</p>
+              )}
 
               {recommendation ? (
-                <dl className="mt-3 flex flex-col gap-2 text-sm">
-                  <div>
-                    <dt className="inline font-medium text-slate-700">Tempo nauki: </dt>
-                    <dd className="inline text-slate-600">{PACE_LABELS[recommendation.pace_assessment]}</dd>
+                <dl className="mt-4 flex flex-col gap-2.5 border-t border-slate-100 pt-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <dt className="font-medium text-slate-700">Tempo nauki:</dt>
+                    <dd>
+                      <Badge tone={recommendation.pace_assessment === "slower" ? "amber" : recommendation.pace_assessment === "faster" ? "green" : "slate"}>
+                        {PACE_LABELS[recommendation.pace_assessment]}
+                      </Badge>
+                    </dd>
                   </div>
                   <div>
                     <dt className="inline font-medium text-slate-700">Rekomendowany poziom trudności: </dt>
@@ -104,35 +125,48 @@ export default function PathDetailPage() {
                 </dl>
               ) : (
                 !recommendationLoading && (
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-500">
                     Brak rekomendacji — wygeneruj ją, aby otrzymać ocenę tempa nauki i sugestię kolejnego kroku.
                   </p>
                 )
               )}
-            </div>
+            </Card>
 
-            <ol className="flex flex-col gap-3">
-              {path.modules.map((module, index) => (
-                <li key={module.id}>
-                  <Link
-                    href={`/paths/${path.id}/modules/${module.id}`}
-                    className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400"
-                  >
-                    <span
-                      className={`mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-medium ${
-                        module.completed ? "bg-green-600 text-white" : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {module.completed ? "✓" : index + 1}
-                    </span>
-                    <span>
-                      <span className="block font-medium text-slate-900">{module.title}</span>
-                      <span className="block text-sm text-slate-600">{module.summary}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ol>
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Moduły ({path.modules.filter((m) => m.completed).length}/{path.modules.length})
+              </h2>
+              <ol className="flex flex-col gap-3">
+                {path.modules.map((module, index) => (
+                  <li key={module.id} className="animate-fade-up" style={{ animationDelay: `${index * 50}ms` }}>
+                    <Link href={`/paths/${path.id}/modules/${module.id}`} className="group block">
+                      <Card className="flex items-start gap-3 p-4 transition group-hover:-translate-y-0.5 group-hover:shadow-card">
+                        <span
+                          className={cn(
+                            "mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-semibold",
+                            module.completed ? "bg-green-500 text-white" : "bg-slate-100 text-slate-500"
+                          )}
+                        >
+                          {module.completed ? (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <path d="M5 12.5 10 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            index + 1
+                          )}
+                        </span>
+                        <span>
+                          <span className="block font-medium text-slate-900 transition group-hover:text-brand-700">
+                            {module.title}
+                          </span>
+                          <span className="block text-sm text-slate-500">{module.summary}</span>
+                        </span>
+                      </Card>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </>
         )}
       </main>
