@@ -34,6 +34,8 @@ export default function PathDetailPage() {
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [recommendationLoading, setRecommendationLoading] = useState(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [remediationLoadingId, setRemediationLoadingId] = useState<number | null>(null);
+  const [remediationError, setRemediationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -52,6 +54,20 @@ export default function PathDetailPage() {
       setRecommendationError(err instanceof ApiError ? err.message : "Nie udało się wygenerować rekomendacji.");
     } finally {
       setRecommendationLoading(false);
+    }
+  }
+
+  async function handleCreateRemediation(moduleId: number) {
+    if (!token) return;
+    setRemediationLoadingId(moduleId);
+    setRemediationError(null);
+    try {
+      const updatedPath = await api.createRemediationModule(token, pathId, moduleId);
+      setPath(updatedPath);
+    } catch (err) {
+      setRemediationError(err instanceof ApiError ? err.message : "Nie udało się utworzyć modułu powtórkowego.");
+    } finally {
+      setRemediationLoadingId(null);
     }
   }
 
@@ -95,6 +111,9 @@ export default function PathDetailPage() {
               {recommendationError && (
                 <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{recommendationError}</p>
               )}
+              {remediationError && (
+                <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{remediationError}</p>
+              )}
 
               {recommendation ? (
                 <dl className="mt-4 flex flex-col gap-2.5 border-t border-slate-100 pt-4 text-sm">
@@ -122,6 +141,23 @@ export default function PathDetailPage() {
                     <dt className="font-medium text-slate-700">Uzasadnienie:</dt>
                     <dd className="text-slate-600">{recommendation.rationale}</dd>
                   </div>
+                  {recommendation.needs_remediation && recommendation.remediation_module_id && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2.5">
+                      <p className="text-red-700">
+                        Agent AI wykrył trudności w module „{recommendation.remediation_module_title}” —
+                        warto go przećwiczyć przed dalszą nauką.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={remediationLoadingId === recommendation.remediation_module_id}
+                        onClick={() => handleCreateRemediation(recommendation.remediation_module_id!)}
+                      >
+                        {remediationLoadingId === recommendation.remediation_module_id && <Spinner />}
+                        Potrenuj słabości
+                      </Button>
+                    </div>
+                  )}
                 </dl>
               ) : (
                 !recommendationLoading && (
@@ -139,8 +175,8 @@ export default function PathDetailPage() {
               <ol className="flex flex-col gap-3">
                 {path.modules.map((module, index) => (
                   <li key={module.id} className="animate-fade-up" style={{ animationDelay: `${index * 50}ms` }}>
-                    <Link href={`/paths/${path.id}/modules/${module.id}`} className="group block">
-                      <Card className="flex items-start gap-3 p-4 transition group-hover:-translate-y-0.5 group-hover:shadow-card">
+                    <Card className="p-4 transition hover:-translate-y-0.5 hover:shadow-card">
+                      <Link href={`/paths/${path.id}/modules/${module.id}`} className="group flex items-start gap-3">
                         <span
                           className={cn(
                             "mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-semibold",
@@ -156,13 +192,33 @@ export default function PathDetailPage() {
                           )}
                         </span>
                         <span>
-                          <span className="block font-medium text-slate-900 transition group-hover:text-brand-700">
-                            {module.title}
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="block font-medium text-slate-900 transition group-hover:text-brand-700">
+                              {module.title}
+                            </span>
+                            {module.is_remediation && <Badge tone="brand">Powtórka</Badge>}
+                            {module.is_weak && <Badge tone="red">Wymaga powtórki</Badge>}
                           </span>
                           <span className="block text-sm text-slate-500">{module.summary}</span>
                         </span>
-                      </Card>
-                    </Link>
+                      </Link>
+                      {module.is_weak && (
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                          <p className="text-xs text-slate-500">
+                            Agent AI monitorujący postępy wykrył trudności: {module.weak_reason}.
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={remediationLoadingId === module.id}
+                            onClick={() => handleCreateRemediation(module.id)}
+                          >
+                            {remediationLoadingId === module.id && <Spinner />}
+                            {remediationLoadingId === module.id ? "Generuję…" : "Potrenuj słabości"}
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
                   </li>
                 ))}
               </ol>

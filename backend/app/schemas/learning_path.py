@@ -19,6 +19,9 @@ class ModuleRead(BaseModel):
     title: str
     summary: str
     completed: bool = False
+    is_weak: bool = False
+    weak_reason: str | None = None
+    is_remediation: bool = False
 
 
 class ModuleDetailRead(ModuleRead):

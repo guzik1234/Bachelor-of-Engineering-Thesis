@@ -406,7 +406,11 @@ export default function ModuleDetailPage() {
   const pathId = Number(params.id);
   const moduleId = Number(params.moduleId);
 
-  const [moduleInfo, setModuleInfo] = useState<{ title: string; completed: boolean } | null>(null);
+  const [moduleInfo, setModuleInfo] = useState<{
+    title: string;
+    completed: boolean;
+    is_remediation: boolean;
+  } | null>(null);
   const [materials, setMaterials] = useState<Material[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -414,7 +418,7 @@ export default function ModuleDetailPage() {
     if (!token) return;
     api.getPath(token, pathId).then((path) => {
       const found = path.modules.find((m) => m.id === moduleId);
-      if (found) setModuleInfo({ title: found.title, completed: found.completed });
+      if (found) setModuleInfo({ title: found.title, completed: found.completed, is_remediation: found.is_remediation });
     });
     api
       .getModuleMaterials(token, moduleId)
@@ -469,7 +473,10 @@ export default function ModuleDetailPage() {
         {moduleInfo && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-bold text-slate-900">{moduleInfo.title}</h1>
-            {moduleInfo.completed && <Badge tone="green">Ukończony</Badge>}
+            <div className="flex items-center gap-2">
+              {moduleInfo.is_remediation && <Badge tone="brand">Powtórka wygenerowana przez agenta AI</Badge>}
+              {moduleInfo.completed && <Badge tone="green">Ukończony</Badge>}
+            </div>
           </div>
         )}
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

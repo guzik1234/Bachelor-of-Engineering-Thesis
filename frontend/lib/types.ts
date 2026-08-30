@@ -23,6 +23,9 @@ export interface Module {
   title: string;
   summary: string;
   completed: boolean;
+  is_weak: boolean;
+  weak_reason: string | null;
+  is_remediation: boolean;
 }
 
 export interface LearningPath {
@@ -120,6 +123,9 @@ export interface Recommendation {
   recommended_module_id: number | null;
   recommended_module_title: string | null;
   rationale: string;
+  needs_remediation: boolean;
+  remediation_module_id: number | null;
+  remediation_module_title: string | null;
   created_at: string;
 }
 

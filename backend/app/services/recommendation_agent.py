@@ -21,6 +21,13 @@ MAX_ATTEMPTS = 3
 VALID_PACE = {"slower", "on_track", "faster"}
 VALID_LEVELS = {"beginner", "intermediate", "advanced"}
 
+# Thresholds for the monitoring agent's weak-topic detection: a module counts
+# as a struggle once there's enough signal to trust it (not after one unlucky
+# attempt), on either exercise performance or how the learner rated it.
+WEAK_PASS_RATE_THRESHOLD = 0.5
+WEAK_RATING_THRESHOLD = 2.5
+MIN_ATTEMPTS_FOR_WEAKNESS = 2
+
 _model: ChatGroq | None = None
 
 
@@ -38,6 +45,7 @@ def _get_model() -> ChatGroq:
 
 class RecommendationState(TypedDict):
     candidate_modules: list[dict[str, Any]]
+    weak_candidates: list[dict[str, Any]]
     messages: list[BaseMessage]
     attempt: int
     result: dict[str, Any] | None
@@ -59,6 +67,7 @@ def _call_model(state: RecommendationState) -> dict[str, Any]:
 def _validate(state: RecommendationState) -> dict[str, Any]:
     raw_content = state["messages"][-1].content
     valid_indices = {m["index"] for m in state["candidate_modules"]}
+    valid_weak_indices = {m["index"] for m in state["weak_candidates"]}
 
     error: str | None = None
     data: dict[str, Any] = {}
@@ -77,6 +86,17 @@ def _validate(state: RecommendationState) -> dict[str, Any]:
             data.get("recommended_module_index") not in valid_indices
         ):
             error = "recommended_module_index musi wskazywać jeden z podanych modułów albo być null"
+        elif not isinstance(data.get("needs_remediation"), bool):
+            error = "needs_remediation musi być wartością true/false"
+        elif data.get("remediation_module_index") is not None and (
+            data.get("remediation_module_index") not in valid_weak_indices
+        ):
+            error = (
+                "remediation_module_index musi wskazywać jeden z podanych modułów sprawiających "
+                "trudność albo być null"
+            )
+        elif data.get("needs_remediation") and data.get("remediation_module_index") is None:
+            error = "needs_remediation=true wymaga podania remediation_module_index"
     except (json.JSONDecodeError, TypeError):
         error = "odpowiedź musi być poprawnym obiektem JSON"
 
@@ -155,6 +175,7 @@ def collect_signals(path: Any, preference: Any) -> dict[str, Any]:
         "feedback_count": len(ratings),
         "exercise_pass_rate": exercise_pass_rate,
         "exercise_attempts": exercise_attempts,
+        "weak_module_count": len(weak_modules(path)),
     }
 
 
@@ -169,17 +190,114 @@ def incomplete_modules(path: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _module_performance(module: Any) -> dict[str, Any]:
+    """Pure-Python mastery signal for a single module: exercise pass rate
+    (latest attempt per material) and average feedback rating."""
+    latest_by_material: dict[int, Any] = {}
+    for material in module.materials:
+        for sub in material.submissions:
+            current = latest_by_material.get(material.id)
+            if current is None or sub.created_at > current.created_at:
+                latest_by_material[material.id] = sub
+    attempts = list(latest_by_material.values())
+    pass_rate = sum(1 for s in attempts if s.passed) / len(attempts) if attempts else None
+
+    ratings = [fb.rating for material in module.materials for fb in material.feedback_entries]
+    avg_rating = sum(ratings) / len(ratings) if ratings else None
+
+    improvement_notes = [
+        note
+        for material in module.materials
+        for sub in material.submissions
+        if not sub.passed
+        for note in sub.improvements
+    ]
+
+    return {
+        "attempts": len(attempts),
+        "pass_rate": pass_rate,
+        "ratings_count": len(ratings),
+        "avg_rating": avg_rating,
+        "improvement_notes": improvement_notes,
+    }
+
+
+def weak_modules(path: Any) -> list[dict[str, Any]]:
+    """Monitoring-agent signal: modules the learner is struggling with, based
+    on a low exercise pass rate and/or a low average feedback rating. Pure
+    Python and deterministic (no LLM call), so it's cheap enough to recompute
+    on every path fetch rather than only when a recommendation is requested.
+    Worst-performing module first. Remediation modules are excluded so a
+    practice module never gets flagged as its own weakness."""
+    results = []
+    for module in sorted(path.modules, key=lambda m: m.order_index):
+        if module.is_remediation:
+            continue
+        perf = _module_performance(module)
+        reasons = []
+        if (
+            perf["attempts"] >= MIN_ATTEMPTS_FOR_WEAKNESS
+            and perf["pass_rate"] is not None
+            and perf["pass_rate"] < WEAK_PASS_RATE_THRESHOLD
+        ):
+            reasons.append(f"zdawalność zadań {perf['pass_rate']:.0%}")
+        if (
+            perf["ratings_count"] >= 1
+            and perf["avg_rating"] is not None
+            and perf["avg_rating"] <= WEAK_RATING_THRESHOLD
+        ):
+            reasons.append(f"niska ocena materiałów ({perf['avg_rating']:.1f}/5)")
+        if not reasons:
+            continue
+        results.append(
+            {
+                "id": module.id,
+                "title": module.title,
+                "summary": module.summary,
+                "pass_rate": perf["pass_rate"],
+                "avg_rating": perf["avg_rating"],
+                "attempts": perf["attempts"],
+                "reason": ", ".join(reasons),
+                "improvement_notes": perf["improvement_notes"],
+            }
+        )
+
+    results.sort(
+        key=lambda d: (
+            d["pass_rate"] if d["pass_rate"] is not None else 1.0,
+            d["avg_rating"] if d["avg_rating"] is not None else 5.0,
+        )
+    )
+    return results
+
+
+def weak_module_candidates(path: Any) -> list[dict[str, Any]]:
+    """Indexed view of weak_modules() for the agent's prompt, mirroring
+    incomplete_modules() so the LLM can pick one by a small integer."""
+    return [
+        {"index": i, "id": w["id"], "title": w["title"], "reason": w["reason"]}
+        for i, w in enumerate(weak_modules(path))
+    ]
+
+
 def generate_recommendation(
     technology: str,
     experience_level: str,
     signals: dict[str, Any],
     candidate_modules: list[dict[str, Any]],
+    weak_candidates: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Runs the recommendation agent: multi-step LangGraph state machine with a
     self-correction loop (invalid JSON triggers a corrective retry, up to
-    MAX_ATTEMPTS), unlike the single-shot calls in llm_client.generate_json."""
+    MAX_ATTEMPTS), unlike the single-shot calls in llm_client.generate_json.
+
+    weak_candidates (from weak_module_candidates()) lets the agent act as a
+    progress monitor: besides pacing, it can flag that the learner should
+    practice a specific struggling module instead of moving forward."""
+    weak_candidates = weak_candidates or []
     initial_state: RecommendationState = {
         "candidate_modules": candidate_modules,
+        "weak_candidates": weak_candidates,
         "messages": [
             SystemMessage(content=build_recommendation_system_prompt()),
             HumanMessage(
@@ -188,6 +306,7 @@ def generate_recommendation(
                     experience_level=experience_level,
                     signals=signals,
                     candidate_modules=candidate_modules,
+                    weak_candidates=weak_candidates,
                 )
             ),
         ],
@@ -211,9 +330,18 @@ def generate_recommendation(
             (m["id"] for m in candidate_modules if m["index"] == module_index), None
         )
 
+    remediation_index = result.get("remediation_module_index")
+    remediation_module_id = None
+    if remediation_index is not None:
+        remediation_module_id = next(
+            (m["id"] for m in weak_candidates if m["index"] == remediation_index), None
+        )
+
     return {
         "pace_assessment": result["pace_assessment"],
         "recommended_experience_level": result["recommended_experience_level"],
         "recommended_module_id": module_id,
         "rationale": str(result["rationale"]),
+        "needs_remediation": bool(result.get("needs_remediation", False)),
+        "remediation_module_id": remediation_module_id,
     }

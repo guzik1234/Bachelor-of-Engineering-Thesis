@@ -124,13 +124,16 @@ PACE_LABELS = {
 
 def build_recommendation_system_prompt() -> str:
     return (
-        "Jesteś mentorem-agentem analizującym postępy kursanta na ścieżce edukacyjnej "
+        "Jesteś mentorem-agentem monitorującym postępy kursanta na ścieżce edukacyjnej "
         "programisty. Na podstawie dostarczonych statystyk oceniasz tempo nauki, "
         "rekomendujesz poziom trudności kolejnych materiałów oraz wskazujesz, na którym "
-        "z niedokończonych modułów kursant powinien się skupić dalej. Zawsze odpowiadasz "
-        "wyłącznie poprawnym obiektem JSON, bez żadnego dodatkowego tekstu przed ani po "
-        "nim, zgodnym dokładnie z podanym schematem. Uzasadnienie musi być napisane w "
-        "języku polskim, konkretne i odwoływać się do przekazanych statystyk."
+        "z niedokończonych modułów kursant powinien się skupić dalej. Dodatkowo wykrywasz, "
+        "czy kursant nie radzi sobie z którymś z dotychczasowych modułów (niska zdawalność "
+        "zadań lub niskie oceny materiałów) — jeśli tak, zalecasz, aby najpierw przećwiczył "
+        "ten temat, zamiast iść dalej. Zawsze odpowiadasz wyłącznie poprawnym obiektem JSON, "
+        "bez żadnego dodatkowego tekstu przed ani po nim, zgodnym dokładnie z podanym "
+        "schematem. Uzasadnienie musi być napisane w języku polskim, konkretne i odwoływać "
+        "się do przekazanych statystyk."
     )
 
 
@@ -139,11 +142,17 @@ def build_recommendation_user_prompt(
     experience_level: str,
     signals: dict,
     candidate_modules: list[dict],
+    weak_candidates: list[dict] | None = None,
 ) -> str:
     level_label = LEVEL_LABELS.get(experience_level, experience_level)
     modules_block = (
         "\n".join(f"{m['index']}: {m['title']} — {m['summary']}" for m in candidate_modules)
         or "(brak niedokończonych modułów)"
+    )
+    weak_candidates = weak_candidates or []
+    weak_block = (
+        "\n".join(f"{w['index']}: {w['title']} — {w['reason']}" for w in weak_candidates)
+        or "(agent monitorujący nie wykrył żadnych słabości)"
     )
 
     return f"""Przeanalizuj postępy kursanta na ścieżce edukacyjnej: {technology}.
@@ -161,13 +170,22 @@ Statystyki postępów:
 Niedokończone moduły (indeks: tytuł — opis):
 {modules_block}
 
+Moduły, w których agent monitorujący wykrył słabe wyniki kursanta \
+(indeks: tytuł — powód):
+{weak_block}
+
 Zwróć WYŁĄCZNIE obiekt JSON o dokładnie takiej strukturze:
 {{
   "pace_assessment": "slower" | "on_track" | "faster",
   "recommended_experience_level": "beginner" | "intermediate" | "advanced",
-  "recommended_module_index": <liczba całkowita z listy modułów powyżej albo null, \
-jeśli lista jest pusta>,
-  "rationale": "2-4 zdania uzasadnienia odwołujące się do statystyk kursanta"
+  "recommended_module_index": <liczba całkowita z listy niedokończonych modułów powyżej \
+albo null, jeśli lista jest pusta>,
+  "needs_remediation": <true, jeśli kursant powinien najpierw przećwiczyć słabo opanowany \
+temat z listy powyżej zamiast iść dalej — w przeciwnym razie false>,
+  "remediation_module_index": <liczba całkowita z listy modułów sprawiających trudność \
+powyżej, wymagana gdy needs_remediation=true, w przeciwnym razie null>,
+  "rationale": "2-4 zdania uzasadnienia odwołujące się do statystyk kursanta, wspominające \
+wykryte słabości, jeśli występują"
 }}"""
 
 

@@ -12,4 +12,7 @@ class RecommendationRead(BaseModel):
     recommended_module_id: int | None
     recommended_module_title: str | None = None
     rationale: str
+    needs_remediation: bool = False
+    remediation_module_id: int | None = None
+    remediation_module_title: str | None = None
     created_at: datetime

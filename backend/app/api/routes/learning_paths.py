@@ -20,12 +20,15 @@ from app.services.recommendation_agent import (
     collect_signals,
     generate_recommendation,
     incomplete_modules,
+    weak_module_candidates,
+    weak_modules,
 )
 
 router = APIRouter()
 
 
 def _to_path_read(path: LearningPath, completed_module_ids: set[int]) -> LearningPathRead:
+    weak_by_id = {w["id"]: w for w in weak_modules(path)}
     modules = [
         ModuleRead(
             id=m.id,
@@ -33,6 +36,9 @@ def _to_path_read(path: LearningPath, completed_module_ids: set[int]) -> Learnin
             title=m.title,
             summary=m.summary,
             completed=m.id in completed_module_ids,
+            is_weak=m.id in weak_by_id,
+            weak_reason=weak_by_id.get(m.id, {}).get("reason"),
+            is_remediation=m.is_remediation,
         )
         for m in path.modules
     ]
@@ -150,6 +156,9 @@ def _to_recommendation_read(rec: PathRecommendation) -> RecommendationRead:
         recommended_module_id=rec.recommended_module_id,
         recommended_module_title=rec.recommended_module.title if rec.recommended_module else None,
         rationale=rec.rationale,
+        needs_remediation=rec.needs_remediation,
+        remediation_module_id=rec.remediation_module_id,
+        remediation_module_title=rec.remediation_module.title if rec.remediation_module else None,
         created_at=rec.created_at,
     )
 
@@ -164,6 +173,7 @@ def generate_path_recommendation(
 
     signals = collect_signals(path, current_user.preference)
     candidates = incomplete_modules(path)
+    weak_candidates = weak_module_candidates(path)
 
     try:
         result = generate_recommendation(
@@ -171,6 +181,7 @@ def generate_path_recommendation(
             experience_level=path.experience_level,
             signals=signals,
             candidate_modules=candidates,
+            weak_candidates=weak_candidates,
         )
     except (LLMGenerationError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
@@ -192,3 +203,66 @@ def get_path_recommendation(
     if not path.recommendations:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brak rekomendacji dla tej ścieżki.")
     return _to_recommendation_read(path.recommendations[0])
+
+
+@router.post(
+    "/{path_id}/modules/{module_id}/remediation",
+    response_model=LearningPathRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_remediation_module(
+    path_id: int,
+    module_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Monitoring-agent action: inserts a practice module right after `module_id`,
+    targeting the weaknesses detected there. Idempotent — calling it again for a
+    module that already has a practice module just returns the path unchanged."""
+    path = _get_owned_path(path_id, current_user, db)
+    source = next((m for m in path.modules if m.id == module_id), None)
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nie znaleziono modułu.")
+
+    already_has_remediation = any(m.source_module_id == source.id for m in path.modules)
+    if not already_has_remediation:
+        weak_by_id = {w["id"]: w for w in weak_modules(path)}
+        weak = weak_by_id.get(source.id)
+        if weak is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ten moduł nie został oznaczony jako słabość kursanta — nie ma czego przećwiczyć.",
+            )
+
+        for m in path.modules:
+            if m.order_index > source.order_index:
+                m.order_index += 1
+
+        unique_notes = list(dict.fromkeys(weak["improvement_notes"]))[:5]
+        focus_line = (
+            f"Skoncentruj się na: {'; '.join(unique_notes)}."
+            if unique_notes
+            else "Powtórz i przećwicz kluczowe zagadnienia tego modułu."
+        )
+        summary = (
+            f"Moduł powtórkowy wygenerowany przez agenta AI monitorującego postępy — kursant "
+            f"miał trudności w module „{source.title}” ({weak['reason']}). {focus_line}"
+        )
+
+        db.add(
+            Module(
+                learning_path_id=path.id,
+                order_index=source.order_index + 1,
+                title=f"Powtórka: {source.title}",
+                summary=summary,
+                is_remediation=True,
+                source_module_id=source.id,
+            )
+        )
+        db.commit()
+        db.refresh(path)
+
+    completed_ids = {
+        p.module_id for p in current_user.progress_entries if p.completed and p.module.learning_path_id == path.id
+    }
+    return _to_path_read(path, completed_ids)

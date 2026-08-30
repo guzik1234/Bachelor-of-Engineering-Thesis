@@ -124,6 +124,13 @@ export const api = {
   generateRecommendation: (token: string, pathId: number) =>
     request<Recommendation>(`/api/learning-paths/${pathId}/recommendation`, { method: "POST" }, token),
 
+  createRemediationModule: (token: string, pathId: number, moduleId: number) =>
+    request<LearningPath>(
+      `/api/learning-paths/${pathId}/modules/${moduleId}/remediation`,
+      { method: "POST" },
+      token
+    ),
+
   getTutorMessages: (token: string, moduleId: number) =>
     request<ChatMessage[]>(`/api/tutor/module/${moduleId}/messages`, {}, token),
 
