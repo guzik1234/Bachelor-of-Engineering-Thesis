@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models  # noqa: F401  ensures all ORM models are registered on Base.metadata
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.core.database import Base, engine
+from app.core.database import Base, engine, sync_added_columns
 
 settings = get_settings()
 
@@ -14,6 +14,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    sync_added_columns(engine)
     yield
 
 
