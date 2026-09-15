@@ -152,7 +152,7 @@ export default function OnboardingPage() {
                 max={60}
                 value={hoursPerWeek}
                 onChange={(e) => setHoursPerWeek(Number(e.target.value))}
-                className="w-24 flex-none text-center"
+                className="!w-24 flex-none text-center"
               />
             </div>
             <span className="text-xs text-slate-400">godzin tygodniowo</span>
