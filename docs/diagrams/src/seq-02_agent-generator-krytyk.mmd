@@ -1,0 +1,23 @@
+sequenceDiagram
+    actor K as Kursant
+    participant FE as Frontend
+    participant API as Backend API
+    participant AG as MaterialCriticAgent (LangGraph)
+    participant LLM as Groq LLM
+    participant DB as PostgreSQL
+
+    K->>FE: otwiera moduł (brak materiału danego typu)
+    FE->>API: GET /materials/module/{id}
+    API->>AG: generate_material_with_review(...)
+    AG->>LLM: generate_material() - 1. wywołanie
+    LLM-->>AG: treść materiału (JSON)
+    AG->>LLM: critique_node() - 2. wywołanie
+    LLM-->>AG: verdict: accept | revise + issues
+    alt verdict = revise (pierwsza próba)
+        AG->>LLM: regeneracja z uwagami krytyka - 3. wywołanie
+        LLM-->>AG: poprawiona treść
+    end
+    AG-->>API: content, critique_passed, critique_notes
+    API->>DB: INSERT Material (version = N)
+    API-->>FE: 200 OK
+    FE-->>K: materiał + odznaka jakości

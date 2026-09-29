@@ -1,0 +1,21 @@
+sequenceDiagram
+    actor K as Kursant
+    participant FE as Frontend
+    participant API as Backend API
+    participant AG as TutorAgent (LangGraph)
+    participant BM25 as Indeks BM25 (w pamięci)
+    participant LLM as Groq LLM
+    participant DB as PostgreSQL
+
+    K->>FE: zadaje pytanie w module
+    FE->>API: POST /tutor/module/{id}/messages
+    API->>DB: zapisz wiadomość (role=user)
+    API->>AG: answer_question(path, question, history)
+    AG->>BM25: build_corpus(path) + retrieve top 4
+    BM25-->>AG: najlepiej dopasowane fragmenty
+    AG->>LLM: generate(kontekst + historia + pytanie)
+    LLM-->>AG: odpowiedź tekstowa
+    AG-->>API: odpowiedź
+    API->>DB: zapisz wiadomość (role=assistant)
+    API-->>FE: 201 Created
+    FE-->>K: odpowiedź tutora

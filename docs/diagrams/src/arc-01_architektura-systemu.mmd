@@ -1,0 +1,30 @@
+flowchart TB
+    Client["Przeglądarka<br/>(kursant)"]
+
+    subgraph Docker["Docker Compose - sieć lokalna"]
+        direction TB
+        FE["frontend :3000<br/>Next.js 15 (App Router)<br/>React 19 + Tailwind"]
+
+        subgraph BE["backend :8000 - FastAPI"]
+            direction TB
+            Routes["api/routes/*<br/>REST endpoints, JWT auth"]
+            Services["services/*<br/>llm_client, path_generator,<br/>material_generator, code_checker"]
+            Agents["Agenci AI (LangGraph)<br/>recommendation_agent<br/>material_critic_agent<br/>tutor_agent (+ BM25 RAG)"]
+            Routes --> Services
+            Services --> Agents
+        end
+
+        DB[("db :5432<br/>PostgreSQL 16<br/>SQLAlchemy 2.0 ORM")]
+    end
+
+    subgraph External["Usługi zewnętrzne"]
+        direction TB
+        Groq["Groq API<br/>openai/gpt-oss-120b"]
+        SMTP["Gmail SMTP<br/>maile weryfikacyjne"]
+    end
+
+    Client -- "HTTPS (SSR/CSR)" --> FE
+    FE -- "REST JSON + Bearer JWT" --> Routes
+    Services -- "SQL (psycopg2)" --> DB
+    Agents -- "HTTPS API" --> Groq
+    Routes -- "SMTP_SSL :465" --> SMTP

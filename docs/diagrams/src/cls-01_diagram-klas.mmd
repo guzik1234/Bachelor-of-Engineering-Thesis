@@ -1,0 +1,95 @@
+classDiagram
+    class User {
+        +int id
+        +string email
+        +string hashed_password
+        +string full_name
+        +bool is_verified
+        +string verification_token
+        +datetime verification_token_expires_at
+        +datetime created_at
+    }
+    class UserPreference {
+        +int id
+        +list~string~ preferred_material_types
+        +float available_hours_per_week
+        +string learning_style
+        +datetime updated_at
+    }
+    class LearningPath {
+        +int id
+        +string technology
+        +string experience_level
+        +string learning_goal
+        +string title
+        +string description
+        +string status
+        +datetime created_at
+    }
+    class Module {
+        +int id
+        +int order_index
+        +string title
+        +string summary
+        +bool is_remediation
+    }
+    class Material {
+        +int id
+        +string material_type
+        +json content
+        +int version
+        +bool critique_passed
+        +string critique_notes
+        +datetime created_at
+    }
+    class Progress {
+        +int id
+        +bool completed
+        +datetime completed_at
+    }
+    class Feedback {
+        +int id
+        +int rating
+        +string comment
+        +datetime created_at
+    }
+    class ExerciseSubmission {
+        +int id
+        +string submitted_code
+        +bool passed
+        +string feedback
+        +list~string~ strengths
+        +list~string~ improvements
+        +datetime created_at
+    }
+    class PathRecommendation {
+        +int id
+        +string pace_assessment
+        +string recommended_experience_level
+        +string rationale
+        +bool needs_remediation
+        +datetime created_at
+    }
+    class ChatMessage {
+        +int id
+        +string role
+        +string content
+        +datetime created_at
+    }
+
+    User "1" --> "0..1" UserPreference
+    User "1" --> "0..*" LearningPath
+    User "1" --> "0..*" Progress
+    User "1" --> "0..*" Feedback
+    User "1" --> "0..*" ExerciseSubmission
+    User "1" --> "0..*" ChatMessage
+    LearningPath "1" --> "0..*" Module
+    LearningPath "1" --> "0..*" PathRecommendation
+    Module "1" --> "0..*" Material
+    Module "1" --> "0..*" Progress
+    Module "1" --> "0..*" ChatMessage
+    Module "0..1" --> "0..*" Module : moduł źródłowy
+    Material "1" --> "0..*" Feedback
+    Material "1" --> "0..*" ExerciseSubmission
+    PathRecommendation "0..*" --> "0..1" Module : rekomendowany
+    PathRecommendation "0..*" --> "0..1" Module : do powtórki

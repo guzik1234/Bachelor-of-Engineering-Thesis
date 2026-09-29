@@ -1,0 +1,111 @@
+erDiagram
+    USERS ||--o| USER_PREFERENCES : "ma"
+    USERS ||--o{ LEARNING_PATHS : "posiada"
+    USERS ||--o{ PROGRESS : "śledzi"
+    USERS ||--o{ FEEDBACK : "wystawia"
+    USERS ||--o{ EXERCISE_SUBMISSIONS : "zgłasza"
+    USERS ||--o{ CHAT_MESSAGES : "pisze"
+    LEARNING_PATHS ||--o{ MODULES : "zawiera"
+    LEARNING_PATHS ||--o{ PATH_RECOMMENDATIONS : "otrzymuje"
+    MODULES ||--o{ MATERIALS : "zawiera"
+    MODULES ||--o{ PROGRESS : "ma wpisy"
+    MODULES ||--o{ CHAT_MESSAGES : "dotyczy"
+    MODULES }o--o| MODULES : "powtórka źródła"
+    MATERIALS ||--o{ FEEDBACK : "otrzymuje"
+    MATERIALS ||--o{ EXERCISE_SUBMISSIONS : "ma zgłoszenia"
+    PATH_RECOMMENDATIONS }o--o| MODULES : "poleca"
+    PATH_RECOMMENDATIONS }o--o| MODULES : "kieruje na powtórkę"
+
+    USERS {
+        int id PK
+        string email UK
+        string hashed_password
+        string full_name
+        bool is_verified
+        string verification_token
+        datetime verification_token_expires_at
+        datetime created_at
+    }
+    USER_PREFERENCES {
+        int id PK
+        int user_id FK "UK"
+        json preferred_material_types
+        float available_hours_per_week
+        string learning_style
+        datetime updated_at
+    }
+    LEARNING_PATHS {
+        int id PK
+        int user_id FK
+        string technology
+        string experience_level
+        string learning_goal
+        string title
+        text description
+        string status
+        datetime created_at
+    }
+    MODULES {
+        int id PK
+        int learning_path_id FK
+        int order_index
+        string title
+        text summary
+        bool is_remediation
+        int source_module_id FK "nullable, self"
+    }
+    MATERIALS {
+        int id PK
+        int module_id FK
+        string material_type
+        json content
+        int version
+        bool critique_passed
+        text critique_notes
+        datetime created_at
+    }
+    PROGRESS {
+        int id PK
+        int user_id FK
+        int module_id FK
+        bool completed
+        datetime completed_at
+    }
+    FEEDBACK {
+        int id PK
+        int user_id FK
+        int material_id FK
+        int rating
+        string comment
+        datetime created_at
+    }
+    EXERCISE_SUBMISSIONS {
+        int id PK
+        int user_id FK
+        int material_id FK
+        text submitted_code
+        bool passed
+        text feedback
+        json strengths
+        json improvements
+        datetime created_at
+    }
+    PATH_RECOMMENDATIONS {
+        int id PK
+        int learning_path_id FK
+        string pace_assessment
+        string recommended_experience_level
+        int recommended_module_id FK "nullable"
+        text rationale
+        bool needs_remediation
+        int remediation_module_id FK "nullable"
+        datetime created_at
+    }
+    CHAT_MESSAGES {
+        int id PK
+        int user_id FK
+        int module_id FK
+        string role
+        text content
+        datetime created_at
+    }

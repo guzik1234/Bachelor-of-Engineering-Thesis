@@ -1,0 +1,13 @@
+stateDiagram-v2
+    state "Przesłane" as Przeslane
+    state "Ocena AI w toku" as OcenaAI
+    state "Zaliczone" as Zaliczone
+    state "Niezaliczone" as Niezaliczone
+
+    [*] --> Przeslane : POST /materials/{id}/submissions
+    Przeslane --> OcenaAI : check_submission()<br/>(LLM ocenia bez wykonywania kodu)
+    OcenaAI --> Zaliczone : passed = true
+    OcenaAI --> Niezaliczone : passed = false
+    OcenaAI --> [*] : błąd modelu AI → 503<br/>(rekord NIE jest zapisywany)
+    Zaliczone --> [*]
+    Niezaliczone --> Przeslane : kolejna próba<br/>(nowe zgłoszenie, historia zachowana)

@@ -1,0 +1,13 @@
+stateDiagram-v2
+    state "Nieukończony" as Nieukonczony
+    state "Ukończony" as Ukonczony
+    state "Wykryta słabość<br/>(wyliczane dynamicznie)" as Slaby
+    state "Ma moduł powtórkowy" as MaPowtorke
+
+    [*] --> Nieukonczony : moduł utworzony<br/>przy generowaniu ścieżki
+    Nieukonczony --> Ukonczony : PUT /progress/module/{id}<br/>completed = true
+    Ukonczony --> Nieukonczony : PUT /progress/module/{id}<br/>completed = false
+    Nieukonczony --> Slaby : agent monitorujący:<br/>pass_rate < 50% (od 2 prób)<br/>lub ocena <= 2.5/5
+    Slaby --> MaPowtorke : POST .../remediation<br/>(agent wstawia moduł powtórkowy)
+    Slaby --> Ukonczony : PUT /progress<br/>(mimo wykrytej słabości)
+    MaPowtorke --> Ukonczony : PUT /progress/module/{id}

@@ -1,0 +1,54 @@
+flowchart TB
+    Kursant(["Kursant"])
+    LLM(["Model LLM (Groq)"])
+
+    subgraph Konto["Konto i preferencje"]
+        direction LR
+        UC1(["Zarejestruj się"])
+        UC2(["Potwierdź e-mail"])
+        UC3(["Zaloguj się"])
+        UC4(["Ustaw preferencje nauki"])
+    end
+
+    subgraph Sciezki["Ścieżki edukacyjne"]
+        direction LR
+        UC5(["Wygeneruj ścieżkę"])
+        UC6(["Przeglądaj postęp"])
+        UC7(["Usuń ścieżkę"])
+        UC8(["Poproś o rekomendację"])
+        UC9(["Utwórz moduł powtórkowy"])
+    end
+
+    subgraph Materialy["Materiały edukacyjne"]
+        direction LR
+        UC10(["Wyświetl materiały"])
+        UC11(["Wygeneruj ponownie"])
+        UC12(["Oznacz jako ukończone"])
+        UC13(["Oceń materiał"])
+    end
+
+    subgraph Zadania["Zadania praktyczne"]
+        direction LR
+        UC14(["Prześlij rozwiązanie"])
+        UC15(["Przeglądaj historię prób"])
+    end
+
+    subgraph Reszta["Tutor i statystyki"]
+        direction LR
+        UC16(["Zadaj pytanie tutorowi"])
+        UC17(["Przeglądaj statystyki"])
+    end
+
+    Kursant --> Konto
+    Kursant --> Sciezki
+    Kursant --> Materialy
+    Kursant --> Zadania
+    Kursant --> Reszta
+
+    UC5 -. "include" .-> LLM
+    UC8 -. "include" .-> LLM
+    UC9 -. "include" .-> UC8
+    UC10 -. "include, gdy brak wersji" .-> LLM
+    UC11 -. "include" .-> LLM
+    UC14 -. "include" .-> LLM
+    UC16 -. "include, retrieve+generate" .-> LLM

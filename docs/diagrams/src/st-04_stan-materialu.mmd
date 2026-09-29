@@ -1,0 +1,14 @@
+stateDiagram-v2
+    state "Wygenerowany (wersja N)" as Wygenerowany
+    state "Oceniany przez krytyka AI" as Krytyk
+    state "Zaakceptowany" as Zaakceptowany
+    state "Zapisany w bazie" as Zapisany
+
+    [*] --> Wygenerowany : generate_material()
+    Wygenerowany --> Krytyk : critique_node<br/>(2. wywołanie LLM)
+    Krytyk --> Zaakceptowany : verdict = accept
+    Krytyk --> Wygenerowany : verdict = revise<br/>(1. próba, dołączane uwagi krytyka)
+    Krytyk --> Zaakceptowany : verdict = revise,<br/>ale limit prób osiągnięty<br/>(critique_passed = false)
+    Zaakceptowany --> Zapisany : commit (version = N)
+    Zapisany --> Wygenerowany : "Wygeneruj ponownie"<br/>nowa wersja N+1
+    Zapisany --> [*]

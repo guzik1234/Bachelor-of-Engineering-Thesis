@@ -1,0 +1,30 @@
+sequenceDiagram
+    actor K as Kursant
+    participant FE as Frontend
+    participant API as Backend API
+    participant AG as RecommendationAgent (LangGraph)
+    participant LLM as Groq LLM
+    participant DB as PostgreSQL
+
+    K->>FE: klik "Poproś o rekomendację"
+    FE->>API: POST /learning-paths/{id}/recommendation
+    API->>API: collect_signals() + incomplete_modules()<br/>+ weak_module_candidates()
+    API->>AG: generate_recommendation(...)
+    loop maks. 3 próby (samokorekta)
+        AG->>LLM: invoke(system + user prompt)
+        LLM-->>AG: odpowiedź JSON
+        AG->>AG: walidacja schematu<br/>(pace, poziom, indeksy modułów)
+        alt JSON niepoprawny i próby < 3
+            AG->>AG: dopisz prompt korygujący, ponów
+        end
+    end
+    alt walidacja OK
+        AG-->>API: wynik (pace, poziom, moduły)
+        API->>DB: INSERT PathRecommendation
+        API-->>FE: 201 Created
+        FE-->>K: pokaż rekomendację
+    else 3 nieudane próby
+        AG-->>API: LLMGenerationError
+        API-->>FE: 503 Service Unavailable
+        FE-->>K: "Model AI niedostępny"
+    end

@@ -1,0 +1,10 @@
+stateDiagram-v2
+    state "Niezweryfikowane" as Niezweryfikowane
+    state "Zweryfikowane (wylogowany)" as Zweryfikowane
+    state "Zalogowany (JWT aktywny)" as Zalogowany
+
+    [*] --> Niezweryfikowane : rejestracja<br/>(token e-mail, ważny 24h)
+    Niezweryfikowane --> Niezweryfikowane : login → 403<br/>resend-verification → nowy token
+    Niezweryfikowane --> Zweryfikowane : verify-email<br/>(token poprawny i aktualny)
+    Zweryfikowane --> Zalogowany : login (wydanie JWT)
+    Zalogowany --> Zweryfikowane : wygaśnięcie JWT / wylogowanie
