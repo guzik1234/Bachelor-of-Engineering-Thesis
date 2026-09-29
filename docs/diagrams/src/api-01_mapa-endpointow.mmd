@@ -1,0 +1,59 @@
+flowchart LR
+    API(["FastAPI - REST API :8000"])
+    PUB["Bez autoryzacji"]
+    SEC["Wymaga nagłówka<br/>Authorization: Bearer JWT"]
+
+    API --> PUB
+    API --> SEC
+
+    PUB --> H["GET /health"]
+    PUB --> A1["POST /api/auth/register"]
+    PUB --> A2["POST /api/auth/login"]
+    PUB --> A3["POST /api/auth/verify-email"]
+    PUB --> A4["POST /api/auth/resend-verification"]
+
+    SEC --> R_USERS["users"]
+    SEC --> R_PREF["preferences"]
+    SEC --> R_PATHS["learning-paths"]
+    SEC --> R_MAT["materials"]
+    SEC --> R_PROG["progress"]
+    SEC --> R_FB["feedback"]
+    SEC --> R_TUTOR["tutor"]
+    SEC --> R_STATS["stats"]
+
+    R_USERS --> U1["GET /api/users/me"]
+    R_USERS --> U2["PUT /api/users/me"]
+
+    R_PREF --> P1["GET /api/preferences"]
+    R_PREF --> P2["PUT /api/preferences"]
+
+    R_PATHS --> L1["POST /generate"]
+    R_PATHS --> L2["GET /"]
+    R_PATHS --> L3["GET /{id}"]
+    R_PATHS --> L4["DELETE /{id}"]
+    R_PATHS --> L5["POST /{id}/recommendation"]
+    R_PATHS --> L6["GET /{id}/recommendation"]
+    R_PATHS --> L7["POST /{id}/modules/{mid}/remediation"]
+
+    R_MAT --> M1["GET /module/{id}"]
+    R_MAT --> M2["POST /module/{id}/regenerate/{type}"]
+    R_MAT --> M3["POST /{id}/submissions"]
+    R_MAT --> M4["GET /{id}/submissions"]
+
+    R_PROG --> PR1["PUT /module/{id}"]
+    R_FB --> F1["POST /api/feedback"]
+    R_TUTOR --> T1["POST /module/{id}/messages"]
+    R_TUTOR --> T2["GET /module/{id}/messages"]
+    R_STATS --> S1["GET /api/stats"]
+
+    LLM(["Groq LLM"])
+    SMTP(["Serwer SMTP"])
+
+    A1 -. "token weryfikacyjny" .-> SMTP
+    A4 -. "token weryfikacyjny" .-> SMTP
+    L1 -. "generowanie ścieżki" .-> LLM
+    L5 -. "agent rekomendacji" .-> LLM
+    M1 -. "agent generator+krytyk" .-> LLM
+    M2 -. "agent generator+krytyk" .-> LLM
+    M3 -. "ocena kodu" .-> LLM
+    T1 -. "agent-tutor (RAG)" .-> LLM

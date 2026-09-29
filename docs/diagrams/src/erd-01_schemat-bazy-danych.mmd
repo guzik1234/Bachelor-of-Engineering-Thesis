@@ -66,8 +66,8 @@ erDiagram
     }
     PROGRESS {
         int id PK
-        int user_id FK
-        int module_id FK
+        int user_id FK "UNIQUE z module_id"
+        int module_id FK "UNIQUE z user_id"
         bool completed
         datetime completed_at
     }

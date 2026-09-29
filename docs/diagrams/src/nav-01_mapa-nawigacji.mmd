@@ -1,0 +1,45 @@
+flowchart TB
+    Start(["Wejście na stronę"])
+
+    subgraph Public["Strony publiczne (bez tokenu)"]
+        direction TB
+        Landing["/<br/>strona startowa"]
+        Register["/register<br/>rejestracja"]
+        RegisterDone["/register<br/>stan: sprawdź skrzynkę"]
+        Verify["/verify-email?token=...<br/>potwierdzenie adresu"]
+        Login["/login<br/>logowanie"]
+    end
+
+    subgraph Private["Strony chronione (useRequireAuth)"]
+        direction TB
+        Dashboard["/dashboard<br/>lista ścieżek + postęp"]
+        Onboarding["/onboarding<br/>preferencje nauki"]
+        NewPath["/paths/new<br/>generowanie ścieżki"]
+        PathDetail["/paths/[id]<br/>moduły, rekomendacja AI,<br/>moduł powtórkowy"]
+        ModuleDetail["/paths/[id]/modules/[moduleId]<br/>materiały, quiz, zadanie,<br/>oceny, tutor AI"]
+        Stats["/stats<br/>statystyki i porównanie ścieżek"]
+    end
+
+    Start --> Landing
+    Landing -- "Zacznij naukę" --> Register
+    Landing -- "Zaloguj się" --> Login
+    Landing -- "gdy zalogowany" --> Dashboard
+
+    Register -- "201 Created" --> RegisterDone
+    RegisterDone -. "link z maila" .-> Verify
+    Verify -- "potwierdzono" --> Login
+    Login -- "403: brak weryfikacji<br/>-> wyślij link ponownie" --> Login
+    Login -- "200 + JWT" --> Dashboard
+
+    Dashboard -- "Nowa ścieżka" --> NewPath
+    Dashboard -- "karta ścieżki" --> PathDetail
+    NewPath -- "po wygenerowaniu" --> PathDetail
+    PathDetail -- "wybór modułu" --> ModuleDetail
+    ModuleDetail -- "Wróć do ścieżki" --> PathDetail
+    Onboarding -- "Zapisz" --> Dashboard
+
+    Dashboard -. "pasek nawigacji" .-> Stats
+    Dashboard -. "pasek nawigacji" .-> Onboarding
+    Stats -. "pasek nawigacji" .-> Dashboard
+
+    Private -. "logout() lub brak tokenu" .-> Login

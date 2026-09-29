@@ -1,42 +1,42 @@
-flowchart TB
+flowchart LR
     Kursant(["Kursant"])
     LLM(["Model LLM (Groq)"])
+    Mail(["Serwer SMTP"])
 
     subgraph Konto["Konto i preferencje"]
-        direction LR
         UC1(["Zarejestruj się"])
-        UC2(["Potwierdź e-mail"])
+        UC2(["Potwierdź adres e-mail"])
         UC3(["Zaloguj się"])
-        UC4(["Ustaw preferencje nauki"])
+        UC4(["Wyloguj się"])
+        UC5(["Edytuj dane profilu"])
+        UC6(["Ustaw preferencje nauki"])
     end
 
     subgraph Sciezki["Ścieżki edukacyjne"]
-        direction LR
-        UC5(["Wygeneruj ścieżkę"])
-        UC6(["Przeglądaj postęp"])
-        UC7(["Usuń ścieżkę"])
-        UC8(["Poproś o rekomendację"])
-        UC9(["Utwórz moduł powtórkowy"])
+        UC7(["Wygeneruj ścieżkę"])
+        UC8(["Przeglądaj ścieżki i postęp"])
+        UC9(["Usuń ścieżkę<br/>(tylko API)"])
+        UC10(["Poproś o rekomendację"])
+        UC11(["Utwórz moduł powtórkowy"])
     end
 
     subgraph Materialy["Materiały edukacyjne"]
-        direction LR
-        UC10(["Wyświetl materiały"])
-        UC11(["Wygeneruj ponownie"])
-        UC12(["Oznacz jako ukończone"])
-        UC13(["Oceń materiał"])
+        UC12(["Wyświetl materiały modułu"])
+        UC13(["Wygeneruj materiał ponownie"])
+        UC14(["Rozwiąż quiz"])
+        UC15(["Oceń materiał i dodaj opinię"])
+        UC16(["Oznacz moduł jako ukończony"])
     end
 
     subgraph Zadania["Zadania praktyczne"]
-        direction LR
-        UC14(["Prześlij rozwiązanie"])
-        UC15(["Przeglądaj historię prób"])
+        UC17(["Prześlij rozwiązanie zadania"])
+        UC18(["Przeglądaj historię prób"])
     end
 
-    subgraph Reszta["Tutor i statystyki"]
-        direction LR
-        UC16(["Zadaj pytanie tutorowi"])
-        UC17(["Przeglądaj statystyki"])
+    subgraph Reszta["Tutor AI i statystyki"]
+        UC19(["Zadaj pytanie tutorowi"])
+        UC20(["Przeglądaj historię rozmowy"])
+        UC21(["Przeglądaj statystyki nauki"])
     end
 
     Kursant --> Konto
@@ -45,10 +45,12 @@ flowchart TB
     Kursant --> Zadania
     Kursant --> Reszta
 
-    UC5 -. "include" .-> LLM
-    UC8 -. "include" .-> LLM
-    UC9 -. "include" .-> UC8
-    UC10 -. "include, gdy brak wersji" .-> LLM
-    UC11 -. "include" .-> LLM
-    UC14 -. "include" .-> LLM
-    UC16 -. "include, retrieve+generate" .-> LLM
+    UC1 -. "«include»" .-> Mail
+    UC1 -. "«extend» ponowna wysyłka" .-> UC2
+    UC7 -. "«include»" .-> LLM
+    UC10 -. "«include»" .-> LLM
+    UC11 -. "«include»" .-> UC10
+    UC12 -. "«include» gdy brak wersji" .-> LLM
+    UC13 -. "«include»" .-> LLM
+    UC17 -. "«include» ocena kodu" .-> LLM
+    UC19 -. "«include» RAG" .-> LLM

@@ -1,30 +1,40 @@
 flowchart TB
-    Client["Przeglądarka<br/>(kursant)"]
+    Client["Przeglądarka kursanta<br/>React 19 (komponenty klienckie)"]
 
-    subgraph Docker["Docker Compose - sieć lokalna"]
+    subgraph Docker["Docker Compose - sieć lokalna (bind mounts, tryb dev)"]
         direction TB
-        FE["frontend :3000<br/>Next.js 15 (App Router)<br/>React 19 + Tailwind"]
 
-        subgraph BE["backend :8000 - FastAPI"]
+        FE["frontend :3000<br/>Next.js 15 App Router (npm run dev)<br/>AuthProvider + token w localStorage"]
+
+        subgraph BE["backend :8000 - FastAPI (uvicorn --reload)"]
             direction TB
-            Routes["api/routes/*<br/>REST endpoints, JWT auth"]
-            Services["services/*<br/>llm_client, path_generator,<br/>material_generator, code_checker"]
-            Agents["Agenci AI (LangGraph)<br/>recommendation_agent<br/>material_critic_agent<br/>tutor_agent (+ BM25 RAG)"]
+            CORS["CORSMiddleware<br/>allow_origins = FRONTEND_ORIGIN"]
+            Routes["api/routes/*<br/>auth, users, preferences, learning-paths,<br/>materials, progress, feedback, tutor, stats"]
+            Deps["api/deps.get_current_user<br/>HTTPBearer + dekodowanie JWT"]
+            Services["services/*<br/>path_generator, material_generator,<br/>code_checker, email_client, prompts"]
+            Agents["Agenci LangGraph<br/>recommendation_agent (pętla samokorekty)<br/>material_critic_agent (generator+krytyk)<br/>tutor_agent (BM25 retrieve-generate)"]
+            Lifespan["lifespan (start aplikacji)<br/>Base.metadata.create_all<br/>+ sync_added_columns"]
+            Health["GET /health"]
+
+            CORS --> Routes
+            Routes --> Deps
             Routes --> Services
             Services --> Agents
         end
 
-        DB[("db :5432<br/>PostgreSQL 16<br/>SQLAlchemy 2.0 ORM")]
+        DB[("db :5432<br/>PostgreSQL 16<br/>10 tabel, SQLAlchemy 2.0 ORM")]
     end
 
     subgraph External["Usługi zewnętrzne"]
         direction TB
-        Groq["Groq API<br/>openai/gpt-oss-120b"]
-        SMTP["Gmail SMTP<br/>maile weryfikacyjne"]
+        Groq["Groq API<br/>openai/gpt-oss-120b<br/>response_format = json_object"]
+        SMTP["Gmail SMTP :465<br/>maile weryfikacyjne"]
     end
 
-    Client -- "HTTPS (SSR/CSR)" --> FE
-    FE -- "REST JSON + Bearer JWT" --> Routes
-    Services -- "SQL (psycopg2)" --> DB
-    Agents -- "HTTPS API" --> Groq
-    Routes -- "SMTP_SSL :465" --> SMTP
+    Client -- "HTTP, Bearer JWT" --> FE
+    FE -- "REST JSON (lib/api.ts)" --> CORS
+    Deps -- "SELECT users" --> DB
+    Services -- "SQL przez psycopg2" --> DB
+    Lifespan -- "DDL przy starcie" --> DB
+    Agents -- "HTTPS (groq SDK / langchain-groq)" --> Groq
+    Services -- "SMTP_SSL" --> SMTP
