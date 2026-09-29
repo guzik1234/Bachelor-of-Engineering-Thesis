@@ -17,6 +17,12 @@ class Settings(BaseSettings):
 
     frontend_origin: str = "http://localhost:3000"
 
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

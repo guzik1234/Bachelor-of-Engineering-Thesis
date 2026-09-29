@@ -1,12 +1,5 @@
-def _register_and_login(client, email="learner@example.com"):
-    client.post("/api/auth/register", json={"email": email, "password": "SecurePass123"})
-    login = client.post("/api/auth/login", json={"email": email, "password": "SecurePass123"})
-    token = login.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def test_generate_learning_path(client, monkeypatch):
-    headers = _register_and_login(client)
+def test_generate_learning_path(client, register_and_login, monkeypatch):
+    headers = register_and_login()
 
     fake_result = {
         "title": "React od podstaw",
@@ -33,8 +26,8 @@ def test_generate_learning_path(client, monkeypatch):
     assert body["modules"][0]["completed"] is False
 
 
-def test_generate_learning_path_handles_llm_failure(client, monkeypatch):
-    headers = _register_and_login(client)
+def test_generate_learning_path_handles_llm_failure(client, register_and_login, monkeypatch):
+    headers = register_and_login()
 
     def _raise(**kwargs):
         from app.services.llm_client import LLMGenerationError

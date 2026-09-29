@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
@@ -12,12 +11,12 @@ import { LogoMark } from "@/components/ui/logo-mark";
 
 export default function RegisterPage() {
   const { register } = useAuth();
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -25,7 +24,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await register(email, password, fullName || undefined);
-      router.push("/onboarding");
+      setRegisteredEmail(email);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nie udało się utworzyć konta.");
     } finally {
@@ -41,39 +40,66 @@ export default function RegisterPage() {
           <Link href="/">
             <LogoMark className="h-11 w-11 rounded-xl" />
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900">Załóż konto</h1>
-          <p className="text-sm text-slate-500">Zacznij naukę z dopasowaną ścieżką AI</p>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="Imię i nazwisko (opcjonalnie)">
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jan Kowalski" />
-          </Field>
-          <Field label="E-mail">
-            <Input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ty@example.com"
-            />
-          </Field>
-          <Field label="Hasło" hint="Minimum 8 znaków">
-            <Input
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </Field>
-          {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          {registeredEmail ? (
+            <>
+              <h1 className="text-2xl font-bold text-slate-900">Sprawdź swoją skrzynkę</h1>
+              <p className="text-sm text-slate-500">Potwierdź adres e-mail, aby dokończyć rejestrację</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-slate-900">Załóż konto</h1>
+              <p className="text-sm text-slate-500">Zacznij naukę z dopasowaną ścieżką AI</p>
+            </>
           )}
-          <Button type="submit" disabled={submitting} className="mt-1 w-full">
-            {submitting ? "Tworzenie konta..." : "Zarejestruj się"}
-          </Button>
-        </form>
+        </div>
+
+        {registeredEmail ? (
+          <div className="flex flex-col gap-4 text-center">
+            <p className="text-sm text-slate-600">
+              Wysłaliśmy link weryfikacyjny na adres <strong>{registeredEmail}</strong>. Kliknij go, aby aktywować
+              konto — dopiero wtedy będziesz mógł/mogła się zalogować.
+            </p>
+            <p className="text-sm text-slate-500">
+              Nie widzisz maila? Sprawdź folder spam albo{" "}
+              <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">
+                spróbuj wysłać go ponownie ze strony logowania
+              </Link>
+              .
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Field label="Imię i nazwisko (opcjonalnie)">
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jan Kowalski" />
+            </Field>
+            <Field label="E-mail">
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ty@example.com"
+              />
+            </Field>
+            <Field label="Hasło" hint="Minimum 8 znaków">
+              <Input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </Field>
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            )}
+            <Button type="submit" disabled={submitting} className="mt-1 w-full">
+              {submitting ? "Tworzenie konta..." : "Zarejestruj się"}
+            </Button>
+          </form>
+        )}
+
         <p className="mt-6 text-center text-sm text-slate-500">
           Masz już konto?{" "}
           <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">

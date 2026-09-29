@@ -3,13 +3,6 @@ from app.models.module import Module
 from app.models.user import User
 
 
-def _register_and_login(client, email="tutor@example.com"):
-    client.post("/api/auth/register", json={"email": email, "password": "SecurePass123"})
-    login = client.post("/api/auth/login", json={"email": email, "password": "SecurePass123"})
-    token = login.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _make_module(db_session, email="tutor@example.com") -> Module:
     user = db_session.query(User).filter(User.email == email).one()
     path = LearningPath(
@@ -29,8 +22,8 @@ def _make_module(db_session, email="tutor@example.com") -> Module:
     return module
 
 
-def test_ask_tutor_stores_question_and_answer(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_ask_tutor_stores_question_and_answer(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="tutor@example.com")
     module = _make_module(db_session)
 
     monkeypatch.setattr(
@@ -56,8 +49,8 @@ def test_ask_tutor_stores_question_and_answer(client, db_session, monkeypatch):
     assert messages[1]["role"] == "assistant"
 
 
-def test_ask_tutor_handles_llm_failure_without_orphan_message(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_ask_tutor_handles_llm_failure_without_orphan_message(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="tutor@example.com")
     module = _make_module(db_session)
 
     def _raise(path, question, history):
@@ -85,15 +78,11 @@ def test_tutor_requires_auth(client, db_session):
     assert response.status_code in (401, 403)
 
 
-def test_tutor_rejects_other_users_module(client, db_session):
-    _register_and_login(client)
+def test_tutor_rejects_other_users_module(client, db_session, register_and_login):
+    register_and_login(email="tutor@example.com")
     module = _make_module(db_session)
 
-    client.post("/api/auth/register", json={"email": "intruder2@example.com", "password": "SecurePass123"})
-    intruder_login = client.post(
-        "/api/auth/login", json={"email": "intruder2@example.com", "password": "SecurePass123"}
-    )
-    intruder_headers = {"Authorization": f"Bearer {intruder_login.json()['access_token']}"}
+    intruder_headers = register_and_login(email="intruder2@example.com")
 
     response = client.get(f"/api/tutor/module/{module.id}/messages", headers=intruder_headers)
     assert response.status_code == 404

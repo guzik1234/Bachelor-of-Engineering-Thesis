@@ -61,6 +61,18 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  verifyEmail: (token: string) =>
+    request<{ detail: string }>("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+
+  resendVerification: (email: string) =>
+    request<{ detail: string }>("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
   me: (token: string) => request<User>("/api/users/me", {}, token),
 
   getPreferences: (token: string) => request<Preference | null>("/api/preferences", {}, token),

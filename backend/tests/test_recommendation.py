@@ -7,13 +7,6 @@ from app.models.user import User
 from app.services.recommendation_agent import weak_modules
 
 
-def _register_and_login(client, email="learner2@example.com"):
-    client.post("/api/auth/register", json={"email": email, "password": "SecurePass123"})
-    login = client.post("/api/auth/login", json={"email": email, "password": "SecurePass123"})
-    token = login.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _make_path(db_session, email="learner2@example.com") -> LearningPath:
     user = db_session.query(User).filter(User.email == email).one()
     path = LearningPath(
@@ -33,8 +26,8 @@ def _make_path(db_session, email="learner2@example.com") -> LearningPath:
     return path
 
 
-def test_generate_recommendation(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_generate_recommendation(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
     module_id = path.modules[0].id
 
@@ -57,16 +50,16 @@ def test_generate_recommendation(client, db_session, monkeypatch):
     assert body["recommended_module_title"] == "JSX"
 
 
-def test_get_recommendation_missing_returns_404(client, db_session):
-    headers = _register_and_login(client)
+def test_get_recommendation_missing_returns_404(client, db_session, register_and_login):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
 
     response = client.get(f"/api/learning-paths/{path.id}/recommendation", headers=headers)
     assert response.status_code == 404
 
 
-def test_get_recommendation_returns_latest(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_get_recommendation_returns_latest(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
 
     results = iter(
@@ -98,8 +91,8 @@ def test_get_recommendation_returns_latest(client, db_session, monkeypatch):
     assert response.json()["pace_assessment"] == "faster"
 
 
-def test_generate_recommendation_handles_llm_failure(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_generate_recommendation_handles_llm_failure(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
 
     def _raise(**kwargs):
@@ -120,15 +113,11 @@ def test_recommendation_requires_auth(client, db_session):
     assert response.status_code in (401, 403)
 
 
-def test_recommendation_rejects_other_users_path(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_recommendation_rejects_other_users_path(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
 
-    client.post("/api/auth/register", json={"email": "intruder@example.com", "password": "SecurePass123"})
-    intruder_login = client.post(
-        "/api/auth/login", json={"email": "intruder@example.com", "password": "SecurePass123"}
-    )
-    intruder_headers = {"Authorization": f"Bearer {intruder_login.json()['access_token']}"}
+    intruder_headers = register_and_login(email="intruder@example.com")
 
     response = client.get(f"/api/learning-paths/{path.id}/recommendation", headers=intruder_headers)
     assert response.status_code == 404
@@ -154,8 +143,8 @@ def _add_failed_submissions(db_session, user_id: int, module: Module, count: int
     db_session.commit()
 
 
-def test_weak_modules_detects_low_exercise_pass_rate(client, db_session):
-    _register_and_login(client)
+def test_weak_modules_detects_low_exercise_pass_rate(client, db_session, register_and_login):
+    register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
     user = db_session.query(User).filter(User.email == "learner2@example.com").one()
     module = path.modules[0]
@@ -170,8 +159,8 @@ def test_weak_modules_detects_low_exercise_pass_rate(client, db_session):
     assert "popraw obsługę pętli" in weak[0]["improvement_notes"]
 
 
-def test_weak_modules_detects_low_feedback_rating(client, db_session):
-    _register_and_login(client)
+def test_weak_modules_detects_low_feedback_rating(client, db_session, register_and_login):
+    register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
     user = db_session.query(User).filter(User.email == "learner2@example.com").one()
     module = path.modules[0]
@@ -189,15 +178,15 @@ def test_weak_modules_detects_low_feedback_rating(client, db_session):
     assert weak[0]["avg_rating"] == 1.0
 
 
-def test_weak_modules_ignores_healthy_module(client, db_session):
-    _register_and_login(client)
+def test_weak_modules_ignores_healthy_module(client, db_session, register_and_login):
+    register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
 
     assert weak_modules(path) == []
 
 
-def test_create_remediation_module_inserts_practice_module(client, db_session):
-    headers = _register_and_login(client)
+def test_create_remediation_module_inserts_practice_module(client, db_session, register_and_login):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
     user = db_session.query(User).filter(User.email == "learner2@example.com").one()
     module = path.modules[0]
@@ -227,8 +216,8 @@ def test_create_remediation_module_inserts_practice_module(client, db_session):
     assert titles2.count(f"Powtórka: {module.title}") == 1
 
 
-def test_create_remediation_module_rejects_module_without_detected_weakness(client, db_session):
-    headers = _register_and_login(client)
+def test_create_remediation_module_rejects_module_without_detected_weakness(client, db_session, register_and_login):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
     module = path.modules[0]
 
@@ -238,18 +227,14 @@ def test_create_remediation_module_rejects_module_without_detected_weakness(clie
     assert response.status_code == 400
 
 
-def test_create_remediation_module_rejects_other_users_path(client, db_session):
-    headers = _register_and_login(client)
+def test_create_remediation_module_rejects_other_users_path(client, db_session, register_and_login):
+    headers = register_and_login(email="learner2@example.com")
     path = _make_path(db_session)
     user = db_session.query(User).filter(User.email == "learner2@example.com").one()
     module = path.modules[0]
     _add_failed_submissions(db_session, user.id, module)
 
-    client.post("/api/auth/register", json={"email": "intruder3@example.com", "password": "SecurePass123"})
-    intruder_login = client.post(
-        "/api/auth/login", json={"email": "intruder3@example.com", "password": "SecurePass123"}
-    )
-    intruder_headers = {"Authorization": f"Bearer {intruder_login.json()['access_token']}"}
+    intruder_headers = register_and_login(email="intruder3@example.com")
 
     response = client.post(
         f"/api/learning-paths/{path.id}/modules/{module.id}/remediation", headers=intruder_headers

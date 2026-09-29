@@ -50,8 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function register(email: string, password: string, fullName?: string) {
+    // Newly registered accounts start unverified, so logging in right away
+    // would just fail with 403 — the caller sends the learner to check their
+    // inbox instead (see app/register/page.tsx).
     await api.register(email, password, fullName);
-    await login(email, password);
   }
 
   function logout() {

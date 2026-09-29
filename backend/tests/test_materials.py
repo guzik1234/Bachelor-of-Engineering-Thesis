@@ -3,13 +3,6 @@ from app.models.module import Module
 from app.models.user import User
 
 
-def _register_and_login(client, email="materials@example.com"):
-    client.post("/api/auth/register", json={"email": email, "password": "SecurePass123"})
-    login = client.post("/api/auth/login", json={"email": email, "password": "SecurePass123"})
-    token = login.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _make_module(db_session, email="materials@example.com") -> Module:
     user = db_session.query(User).filter(User.email == email).one()
     path = LearningPath(
@@ -29,8 +22,8 @@ def _make_module(db_session, email="materials@example.com") -> Module:
     return module
 
 
-def test_get_module_materials_stores_critique_result(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_get_module_materials_stores_critique_result(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="materials@example.com")
     module = _make_module(db_session)
 
     fake_result = {
@@ -51,8 +44,8 @@ def test_get_module_materials_stores_critique_result(client, db_session, monkeyp
     assert text_material["critique_notes"] == "Materiał jest poprawny i zwięzły."
 
 
-def test_regenerate_material_handles_llm_failure(client, db_session, monkeypatch):
-    headers = _register_and_login(client)
+def test_regenerate_material_handles_llm_failure(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="materials@example.com")
     module = _make_module(db_session)
 
     def _raise(**kwargs):

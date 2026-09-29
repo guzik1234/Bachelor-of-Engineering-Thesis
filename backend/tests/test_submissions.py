@@ -4,13 +4,6 @@ from app.models.module import Module
 from app.models.user import User
 
 
-def _register_and_login(client, email="coder@example.com"):
-    client.post("/api/auth/register", json={"email": email, "password": "SecurePass123"})
-    login = client.post("/api/auth/login", json={"email": email, "password": "SecurePass123"})
-    token = login.json()["access_token"]
-    return token, {"Authorization": f"Bearer {token}"}
-
-
 def _make_exercise_material(db_session, email="coder@example.com") -> Material:
     user = db_session.query(User).filter(User.email == email).one()
     path = LearningPath(
@@ -39,8 +32,8 @@ def _make_exercise_material(db_session, email="coder@example.com") -> Material:
     return material
 
 
-def test_submit_solution_returns_ai_verdict(client, db_session, monkeypatch):
-    _, headers = _register_and_login(client)
+def test_submit_solution_returns_ai_verdict(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="coder@example.com")
     material = _make_exercise_material(db_session)
 
     fake_verdict = {
@@ -63,8 +56,8 @@ def test_submit_solution_returns_ai_verdict(client, db_session, monkeypatch):
     assert body["strengths"] == fake_verdict["strengths"]
 
 
-def test_submit_solution_rejects_non_exercise_material(client, db_session, monkeypatch):
-    _, headers = _register_and_login(client)
+def test_submit_solution_rejects_non_exercise_material(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="coder@example.com")
     material = _make_exercise_material(db_session)
     material.material_type = "text"
     db_session.commit()
@@ -77,8 +70,8 @@ def test_submit_solution_rejects_non_exercise_material(client, db_session, monke
     assert response.status_code == 400
 
 
-def test_submit_solution_handles_llm_failure(client, db_session, monkeypatch):
-    _, headers = _register_and_login(client)
+def test_submit_solution_handles_llm_failure(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="coder@example.com")
     material = _make_exercise_material(db_session)
 
     def _raise(**kwargs):
@@ -96,8 +89,8 @@ def test_submit_solution_handles_llm_failure(client, db_session, monkeypatch):
     assert response.status_code == 503
 
 
-def test_list_submissions_returns_history(client, db_session, monkeypatch):
-    _, headers = _register_and_login(client)
+def test_list_submissions_returns_history(client, db_session, register_and_login, monkeypatch):
+    headers = register_and_login(email="coder@example.com")
     material = _make_exercise_material(db_session)
 
     monkeypatch.setattr(

@@ -9,15 +9,8 @@ from app.models.submission import ExerciseSubmission
 from app.models.user import User
 
 
-def _register_and_login(client, email="stats@example.com"):
-    client.post("/api/auth/register", json={"email": email, "password": "SecurePass123"})
-    login = client.post("/api/auth/login", json={"email": email, "password": "SecurePass123"})
-    token = login.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def test_stats_empty_account(client):
-    headers = _register_and_login(client)
+def test_stats_empty_account(client, register_and_login):
+    headers = register_and_login(email="stats@example.com")
     response = client.get("/api/stats", headers=headers)
     assert response.status_code == 200
     body = response.json()
@@ -26,8 +19,8 @@ def test_stats_empty_account(client):
     assert body["paths"] == []
 
 
-def test_stats_aggregates_across_paths(client, db_session):
-    headers = _register_and_login(client)
+def test_stats_aggregates_across_paths(client, db_session, register_and_login):
+    headers = register_and_login(email="stats@example.com")
     user = db_session.query(User).filter(User.email == "stats@example.com").one()
 
     # Path A: 2 modules, 1 completed, one exercise passed, one rating of 4

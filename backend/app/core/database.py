@@ -42,6 +42,14 @@ _ADDED_COLUMNS: list[tuple[str, str, str]] = [
     ("modules", "source_module_id", "INTEGER"),
     ("path_recommendations", "needs_remediation", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("path_recommendations", "remediation_module_id", "INTEGER"),
+    # DEFAULT TRUE here (not FALSE) is deliberate: this backfills existing rows
+    # as already-verified, since they registered before email verification
+    # existed and shouldn't be locked out by it. New accounts still start
+    # unverified — the ORM sends is_verified=False explicitly on every insert
+    # (see models/user.py), overriding this column default.
+    ("users", "is_verified", "BOOLEAN NOT NULL DEFAULT TRUE"),
+    ("users", "verification_token", "VARCHAR(64)"),
+    ("users", "verification_token_expires_at", "TIMESTAMP"),
 ]
 
 

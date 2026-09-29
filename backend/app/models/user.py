@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -14,6 +14,15 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Email verification. is_verified defaults to False at the Python/ORM level
+    # (so every newly registered account starts unverified) but the column
+    # added to pre-existing databases via sync_added_columns() below backfills
+    # TRUE for rows that already existed — accounts created before this
+    # feature shipped keep working rather than getting locked out.
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    verification_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     preference: Mapped["UserPreference | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"

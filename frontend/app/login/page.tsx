@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { ApiError } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -17,18 +17,34 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setUnverified(false);
+    setResendState("idle");
     setSubmitting(true);
     try {
       await login(email, password);
       router.push("/dashboard");
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setUnverified(true);
+      }
       setError(err instanceof ApiError ? err.message : "Nie udało się zalogować.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendState("sending");
+    try {
+      await api.resendVerification(email);
+    } finally {
+      setResendState("sent");
     }
   }
 
@@ -63,7 +79,27 @@ export default function LoginPage() {
             />
           </Field>
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              <p>{error}</p>
+              {unverified && (
+                <div className="mt-2">
+                  {resendState === "sent" ? (
+                    <p className="text-red-700">
+                      Jeśli konto istnieje, wysłaliśmy nowy link weryfikacyjny — sprawdź skrzynkę.
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resendState === "sending" || !email}
+                      className="font-medium text-red-700 underline hover:text-red-800 disabled:opacity-60"
+                    >
+                      {resendState === "sending" ? "Wysyłanie..." : "Wyślij link weryfikacyjny ponownie"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           <Button type="submit" disabled={submitting} className="mt-1 w-full">
             {submitting ? "Logowanie..." : "Zaloguj się"}
